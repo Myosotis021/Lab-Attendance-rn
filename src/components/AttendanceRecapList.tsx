@@ -7,28 +7,45 @@ import {
   ListRenderItem,
 } from 'react-native';
 import { AttendanceRecord, AttendanceStatus } from '../types';
+import { formatAttendanceTime } from '../services/attendanceService';
+import { Timestamp } from 'firebase/firestore';
 
 export const INITIAL_ATTENDEES: AttendanceRecord[] = [
   {
     id: 'att-1',
+    sessionId: 'ses-1',
+    classId: 'cls-1',
+    uid: 'mhs-220101001',
     studentName: 'Ahmad Fauzi',
     studentNim: '220101001',
     timestamp: '13:05:22 WIB',
     status: 'Hadir',
+    notes: 'Meja PC-01',
+    createdAt: Timestamp.now(),
   },
   {
     id: 'att-2',
+    sessionId: 'ses-1',
+    classId: 'cls-1',
+    uid: 'mhs-220101015',
     studentName: 'Siti Rahma',
     studentNim: '220101015',
     timestamp: '13:08:45 WIB',
     status: 'Hadir',
+    notes: 'Meja PC-02',
+    createdAt: Timestamp.now(),
   },
   {
     id: 'att-3',
+    sessionId: 'ses-1',
+    classId: 'cls-1',
+    uid: 'mhs-220101032',
     studentName: 'Dimas Pratama',
     studentNim: '220101032',
     timestamp: '13:12:10 WIB',
     status: 'Izin',
+    notes: 'Sakit flu',
+    createdAt: Timestamp.now(),
   },
 ];
 
@@ -97,7 +114,9 @@ export const AttendanceRecapList: React.FC<AttendanceRecapListProps> = ({
             <Text style={styles.studentNim}>NIM: {item.studentNim}</Text>
             <View style={styles.timeRow}>
               <Text style={styles.timeLabel}>Waktu:</Text>
-              <Text style={styles.timeValue}>{item.timestamp}</Text>
+              <Text style={styles.timeValue}>
+                {item.timestamp || formatAttendanceTime(item.createdAt)}
+              </Text>
             </View>
             {item.notes ? (
               <Text style={styles.notesText} numberOfLines={1}>

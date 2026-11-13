@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,40 +7,32 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   AttendanceRecord,
-  AttendanceStatus,
   SessionItem,
   SessionStatus,
-} from '../types';
-import AttendanceFeedbackModal from '../components/AttendanceFeedbackModal';
-import StudentHistoryCard from '../components/StudentHistoryCard';
+} from '../types/models';
+import { AttendanceFeedbackModal } from '../components/AttendanceFeedbackModal';
+import { StudentHistoryCard } from '../components/StudentHistoryCard';
+import { useAuth } from '../hooks/useAuth';
+import { listenSession } from '../services/sessionService';
+import {
+  saveAttendance,
+  listenMyAttendanceForSession,
+} from '../services/attendanceService';
+import { LoadingState } from '../components/LoadingState';
+import { ErrorState } from '../components/ErrorState';
+import { getErrorMessage } from '../utils/getErrorMessage';
 
 export interface StudentAttendanceScreenProps {
   initialSession?: SessionItem;
   onBack?: () => void;
 }
-
-// Default mock session matching SRS document
-export const DEFAULT_MOCK_SESSION: SessionItem = {
-  id: 'ses-1',
-  courseTitle: 'Pemrograman Perangkat Komputasi',
-  moduleName: 'Modul 1: Antarmuka & Alur Praktikum',
-  classGroup: 'Kelas A',
-  roomName: 'Lab Komputer 2',
-  timeSlot: 'Jumat, 13:00 - 15:30 WIB',
-  status: 'BERJALAN', // Default to active so student can test attendance immediately
-};
-
-// Dummy student identity specified in Developer 3 SRS
-export const DUMMY_STUDENT_PROFILE = {
-  name: 'Ahmad Fauzi',
-  nim: '220101001',
-  role: 'Praktikan' as const,
-};
 
 const getSessionBadgeStyle = (status: SessionStatus) => {
   switch (status) {
@@ -65,6 +57,13 @@ const getSessionBadgeStyle = (status: SessionStatus) => {
         border: '#FCA5A5',
         label: 'SELESAI',
       };
+    default:
+      return {
+        bg: '#F3F4F6',
+        text: '#4B5563',
+        border: '#E5E7EB',
+        label: status,
+      };
   }
 };
 
@@ -83,93 +82,132 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
     status?: SessionStatus;
   }>();
 
-  // Combine params or props with default session
-  const fallbackSession: SessionItem = {
-    id: initialSession?.id || searchParams.id || DEFAULT_MOCK_SESSION.id,
-    courseTitle:
-      initialSession?.courseTitle ||
-      searchParams.courseTitle ||
-      DEFAULT_MOCK_SESSION.courseTitle,
-    moduleName:
-      initialSession?.moduleName ||
-      searchParams.moduleName ||
-      DEFAULT_MOCK_SESSION.moduleName,
-    classGroup:
-      initialSession?.classGroup ||
-      searchParams.classGroup ||
-      DEFAULT_MOCK_SESSION.classGroup,
-    roomName:
-      initialSession?.roomName ||
-      searchParams.roomName ||
-      DEFAULT_MOCK_SESSION.roomName,
-    timeSlot:
-      initialSession?.timeSlot ||
-      searchParams.timeSlot ||
-      DEFAULT_MOCK_SESSION.timeSlot,
-    status:
-      initialSession?.status ||
-      (searchParams.status as SessionStatus) ||
-      DEFAULT_MOCK_SESSION.status,
-  };
+  const { profile } = useAuth();
+  const sessionId = initialSession?.id || searchParams.id || '';
 
-  // Current active session & simulation status state
-  const [currentSession, setCurrentSession] = useState<SessionItem>(fallbackSession);
+  // Session state from Firestore
+  const [currentSession, setCurrentSession] = useState<SessionItem | null>(() => {
+    if (initialSession) return initialSession;
+    if (searchParams.id) {
+      return {
+        id: searchParams.id,
+        classId: '',
+        courseTitle: searchParams.courseTitle || '',
+        moduleName: searchParams.moduleName || '',
+        classGroup: searchParams.classGroup || '',
+        roomName: searchParams.roomName || '',
+        timeSlot: searchParams.timeSlot || '',
+        status: (searchParams.status as SessionStatus) || 'BELUM_DIBUKA',
+        participantIds: [],
+        createdBy: '',
+        createdAt: null as any,
+      };
+    }
+    return null;
+  });
+
+  const [loadingSession, setLoadingSession] = useState(Boolean(sessionId));
+  const [sessionError, setSessionError] = useState<string | null>(null);
 
   // Form input state
-  const [selectedStatus, setSelectedStatus] = useState<AttendanceStatus>('Hadir');
   const [notes, setNotes] = useState<string>('');
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Attendance submission and anti-double attendance state
-  const [hasAttended, setHasAttended] = useState<boolean>(false);
+  // Attendance state
   const [attendanceRecord, setAttendanceRecord] = useState<AttendanceRecord | null>(null);
+  const [loadingAttendance, setLoadingAttendance] = useState(
+    Boolean(sessionId && profile.uid)
+  );
 
   // Success Feedback Modal state
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
 
-  // Handler for submitting attendance
-  const handleSubmitAttendance = () => {
-    // Only allow when session is active and not already attended
-    if (currentSession.status !== 'BERJALAN' || hasAttended) {
+  // 1. Listen to session status in real-time
+  useEffect(() => {
+    if (!sessionId) {
       return;
     }
 
-    // Record local system timestamp
-    const now = new Date();
-    const formattedTime =
-      now.toLocaleTimeString('id-ID', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }) + ' WIB';
+    const unsubscribe = listenSession(
+      sessionId,
+      (sess) => {
+        if (sess) {
+          setCurrentSession(sess);
+        }
+        setLoadingSession(false);
+        setSessionError(null);
+      },
+      (err) => {
+        setSessionError(getErrorMessage(err));
+        setLoadingSession(false);
+      }
+    );
 
-    const newRecord: AttendanceRecord = {
-      id: `att-${Date.now()}`,
-      studentName: DUMMY_STUDENT_PROFILE.name,
-      studentNim: DUMMY_STUDENT_PROFILE.nim,
-      timestamp: formattedTime,
-      status: selectedStatus,
-      notes: notes.trim() ? notes.trim() : undefined,
+    return () => {
+      unsubscribe();
     };
+  }, [sessionId]);
 
-    setAttendanceRecord(newRecord);
-    setHasAttended(true);
-    setShowFeedbackModal(true);
-  };
+  // 2. Listen to student's attendance on this session
+  useEffect(() => {
+    if (!sessionId || !profile.uid) {
+      return;
+    }
 
-  // Helper to change session status dynamically for demo/testing
-  const handleStatusChange = (newStatus: SessionStatus) => {
-    setCurrentSession((prev) => ({
-      ...prev,
-      status: newStatus,
-    }));
-  };
+    const unsubscribe = listenMyAttendanceForSession(
+      sessionId,
+      profile.uid,
+      (record) => {
+        setAttendanceRecord(record);
+        setLoadingAttendance(false);
+      },
+      (err) => {
+        console.error('Error listening attendance:', err);
+        setLoadingAttendance(false);
+      }
+    );
 
-  // Helper to reset attendance state for testing demo
-  const handleResetForDemo = () => {
-    setHasAttended(false);
-    setAttendanceRecord(null);
-    setNotes('');
-    setSelectedStatus('Hadir');
+    return () => {
+      unsubscribe();
+    };
+  }, [sessionId, profile.uid]);
+
+  // Handler for submitting attendance (SRS-10)
+  const handleSubmitAttendance = async () => {
+    if (!currentSession) return;
+
+    if (currentSession.status !== 'BERJALAN') {
+      Alert.alert(
+        'Sesi Tidak Aktif',
+        'Presensi hanya dapat dilakukan saat status sesi BERJALAN.'
+      );
+      return;
+    }
+
+    if (attendanceRecord) {
+      Alert.alert('Sudah Presensi', 'Anda sudah melakukan presensi pada sesi ini.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const saved = await saveAttendance({
+        sessionId: currentSession.id,
+        classId: currentSession.classId,
+        uid: profile.uid,
+        studentName: profile.name,
+        studentNim: profile.nim || '',
+        notes: notes.trim(),
+      });
+
+      setAttendanceRecord(saved);
+      setShowFeedbackModal(true);
+    } catch (err: unknown) {
+      const msg = getErrorMessage(err);
+      Alert.alert('Gagal Presensi', msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleBack = () => {
@@ -177,11 +215,30 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
       onBack();
     } else if (router.canGoBack()) {
       router.back();
+    } else {
+      router.replace('/');
     }
   };
 
-  const sessionBadge = getSessionBadgeStyle(currentSession.status);
-  const canGoBack = Boolean(onBack || router.canGoBack());
+  if (loadingSession && !currentSession) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <LoadingState message="Memuat informasi sesi..." />
+      </SafeAreaView>
+    );
+  }
+
+  if (sessionError && !currentSession) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ErrorState message={sessionError} onRetry={handleBack} retryText="Kembali" />
+      </SafeAreaView>
+    );
+  }
+
+  const sessionStatus = currentSession?.status || 'BELUM_DIBUKA';
+  const sessionBadge = getSessionBadgeStyle(sessionStatus);
+  const hasAttended = Boolean(attendanceRecord);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -190,65 +247,17 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Navigation Bar / Title */}
+        {/* Top Navigation Bar */}
         <View style={styles.topBar}>
-          {canGoBack ? (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBack}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.backButtonText}>← Kembali</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.appTitleContainer}>
-              <Text style={styles.appSubtitle}>PRESENSI PRAKTIKUM</Text>
-              <Text style={styles.appTitle}>Portal Praktikan</Text>
-            </View>
-          )}
-          <View style={styles.devBadge}>
-            <Text style={styles.devBadgeText}>DEV 3</Text>
-          </View>
-        </View>
-
-        {/* Demo Session Status Switcher (As suggested in SRS 2.1 tips) */}
-        <View style={styles.simulationContainer}>
-          <Text style={styles.simulationLabel}>
-            Simulasi Status Sesi (Demo Tester):
-          </Text>
-          <View style={styles.simulationButtonsRow}>
-            {(['BELUM_DIBUKA', 'BERJALAN', 'SELESAI'] as SessionStatus[]).map(
-              (status) => {
-                const isActive = currentSession.status === status;
-                return (
-                  <TouchableOpacity
-                    key={status}
-                    style={[
-                      styles.simBtn,
-                      isActive && styles.simBtnActive,
-                      status === 'BELUM_DIBUKA' && isActive && styles.simBtnPending,
-                      status === 'BERJALAN' && isActive && styles.simBtnOpen,
-                      status === 'SELESAI' && isActive && styles.simBtnClosed,
-                    ]}
-                    onPress={() => handleStatusChange(status)}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.simBtnText,
-                        isActive && styles.simBtnTextActive,
-                      ]}
-                    >
-                      {status === 'BELUM_DIBUKA'
-                        ? 'Belum Dibuka'
-                        : status === 'BERJALAN'
-                        ? 'Berjalan'
-                        : 'Selesai'}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }
-            )}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBack}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.backButtonText}>← Kembali</Text>
+          </TouchableOpacity>
+          <View style={styles.appTitleContainer}>
+            <Text style={styles.appTitle}>Presensi Praktikan</Text>
           </View>
         </View>
 
@@ -257,10 +266,10 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
           <View style={styles.sessionHeaderRow}>
             <View style={styles.sessionTitleWrapper}>
               <Text style={styles.sessionCourseTitle}>
-                {currentSession.courseTitle}
+                {currentSession?.courseTitle}
               </Text>
               <Text style={styles.sessionModuleName}>
-                {currentSession.moduleName}
+                {currentSession?.moduleName}
               </Text>
             </View>
             <View
@@ -284,30 +293,48 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
             <View style={styles.sessionMetaItem}>
               <Text style={styles.metaLabel}>Kelas & Ruang:</Text>
               <Text style={styles.metaValue}>
-                {currentSession.classGroup} • {currentSession.roomName}
+                {currentSession?.classGroup} • {currentSession?.roomName}
               </Text>
             </View>
             <View style={styles.sessionMetaItem}>
               <Text style={styles.metaLabel}>Jadwal Praktikum:</Text>
-              <Text style={styles.metaValue}>{currentSession.timeSlot}</Text>
+              <Text style={styles.metaValue}>{currentSession?.timeSlot}</Text>
             </View>
           </View>
         </View>
 
-        {/* Read-only Student Identity Info Card */}
+        {/* Read-only Student Identity Info Card (from useAuth profile) */}
         <View style={styles.profileCard}>
           <View style={styles.avatarBox}>
-            <Text style={styles.avatarText}>AF</Text>
+            <Text style={styles.avatarText}>
+              {(profile.name || 'M')
+                .split(' ')
+                .map((n) => n[0])
+                .slice(0, 2)
+                .join('')
+                .toUpperCase()}
+            </Text>
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileRoleBadge}>PRAKTIKAN AKTIF</Text>
-            <Text style={styles.profileName}>{DUMMY_STUDENT_PROFILE.name}</Text>
-            <Text style={styles.profileNim}>NIM: {DUMMY_STUDENT_PROFILE.nim}</Text>
+            <Text style={styles.profileName}>{profile.name}</Text>
+            <Text style={styles.profileNim}>NIM: {profile.nim || '-'}</Text>
           </View>
         </View>
 
         {/* Conditional Content based on Session Status and Attendance State */}
-        {currentSession.status === 'BELUM_DIBUKA' ? (
+        {loadingAttendance ? (
+          <LoadingState message="Memeriksa status kehadiran..." />
+        ) : hasAttended && attendanceRecord ? (
+          /* Anti-Double Attendance: Form hidden/locked and replaced by verified proof */
+          <View style={styles.attendanceLockedContainer}>
+            <StudentHistoryCard
+              attendance={attendanceRecord}
+              sessionTitle={`${currentSession?.courseTitle} (${currentSession?.classGroup})`}
+              onViewFeedback={() => setShowFeedbackModal(true)}
+            />
+          </View>
+        ) : sessionStatus === 'BELUM_DIBUKA' ? (
           /* Gating 1: Session not yet opened */
           <View style={styles.gatingCardPending}>
             <View style={styles.gatingIconBoxYellow}>
@@ -316,15 +343,15 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
             <Text style={styles.gatingTitlePending}>Sesi Belum Dibuka</Text>
             <Text style={styles.gatingDescription}>
               Sesi praktikum belum dibuka oleh asisten lab. Pengisian presensi
-              belum tersedia.
+              belum tersedia saat ini.
             </Text>
             <View style={styles.gatingHintBox}>
               <Text style={styles.gatingHintText}>
-                Silakan tunggu hingga asisten membuka sesi praktikum ini.
+                Status sesi akan diperbarui otomatis saat asisten membuka sesi.
               </Text>
             </View>
           </View>
-        ) : currentSession.status === 'SELESAI' ? (
+        ) : sessionStatus === 'SELESAI' ? (
           /* Gating 2: Session already ended */
           <View style={styles.gatingCardClosed}>
             <View style={styles.gatingIconBoxRed}>
@@ -334,116 +361,56 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
             <Text style={styles.gatingDescription}>
               Sesi praktikum telah ditutup. Pengisian presensi sudah berakhir.
             </Text>
-
-            {/* If the student previously attended before closing, show history */}
-            {hasAttended && attendanceRecord ? (
-              <View style={styles.historyWrapper}>
-                <StudentHistoryCard
-                  attendance={attendanceRecord}
-                  sessionTitle={`${currentSession.courseTitle} (${currentSession.classGroup})`}
-                  onViewFeedback={() => setShowFeedbackModal(true)}
-                  onResetForDemo={handleResetForDemo}
-                />
-              </View>
-            ) : (
-              <View style={styles.gatingHintBox}>
-                <Text style={styles.gatingHintText}>
-                  Batas waktu presensi telah berakhir. Anda tidak dapat mengisi
-                  presensi pada sesi ini lagi.
-                </Text>
-              </View>
-            )}
-          </View>
-        ) : hasAttended && attendanceRecord ? (
-          /* Anti-Double Attendance: Form hidden/locked and replaced by history proof */
-          <View style={styles.attendanceLockedContainer}>
-            <StudentHistoryCard
-              attendance={attendanceRecord}
-              sessionTitle={`${currentSession.courseTitle} (${currentSession.classGroup})`}
-              onViewFeedback={() => setShowFeedbackModal(true)}
-              onResetForDemo={handleResetForDemo}
-            />
+            <View style={styles.gatingHintBox}>
+              <Text style={styles.gatingHintText}>
+                Batas waktu presensi telah berakhir. Anda tidak dapat mengisi
+                presensi pada sesi ini lagi.
+              </Text>
+            </View>
           </View>
         ) : (
           /* Active Attendance Form (When BERJALAN and not yet attended) */
           <View style={styles.formCard}>
             <Text style={styles.formSectionTitle}>Formulir Kehadiran</Text>
             <Text style={styles.formSectionSubtitle}>
-              Pilih status kehadiran Anda dan isi nomor meja laboratorium.
+              Presensi mencatat kehadiran Anda secara langsung ke sistem lab.
             </Text>
 
-            {/* Status Pills Selection */}
-            <Text style={styles.fieldLabel}>Status Kehadiran *</Text>
-            <View style={styles.pillsRow}>
-              {(['Hadir', 'Izin', 'Sakit'] as AttendanceStatus[]).map((status) => {
-                const isSelected = selectedStatus === status;
-
-                let activeBg = '#16A34A';
-                let activeBorder = '#15803D';
-                let activeColor = '#FFFFFF';
-
-                if (status === 'Izin') {
-                  activeBg = '#D97706';
-                  activeBorder = '#B45309';
-                  activeColor = '#FFFFFF';
-                } else if (status === 'Sakit') {
-                  activeBg = '#2563EB';
-                  activeBorder = '#1D4ED8';
-                  activeColor = '#FFFFFF';
-                }
-
-                return (
-                  <TouchableOpacity
-                    key={status}
-                    style={[
-                      styles.pillButton,
-                      isSelected && {
-                        backgroundColor: activeBg,
-                        borderColor: activeBorder,
-                      },
-                    ]}
-                    onPress={() => setSelectedStatus(status)}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.pillText,
-                        isSelected && {
-                          color: activeColor,
-                          fontWeight: '700',
-                        },
-                      ]}
-                    >
-                      {status === 'Hadir' ? '✓ Hadir' : status}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+            {/* Status Kehadiran (Otomatis Hadir) */}
+            <Text style={styles.fieldLabel}>Status Kehadiran</Text>
+            <View style={styles.statusFixedBox}>
+              <Text style={styles.statusFixedText}>✓ Hadir di Laboratorium</Text>
             </View>
 
             {/* Optional Notes (e.g. PC table number) */}
-            <Text style={styles.fieldLabel}>Catatan Tambahan (Opsional)</Text>
+            <Text style={styles.fieldLabel}>Nomor Meja Lab / Catatan (Opsional)</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="Contoh: Nomor Meja Lab: PC-04"
+              placeholder="Contoh: Meja PC-04"
               placeholderTextColor="#9CA3AF"
               value={notes}
               onChangeText={setNotes}
               maxLength={100}
+              editable={!submitting}
             />
             <Text style={styles.inputHelpText}>
-              Bisa diisi nomor PC lab atau keterangan izin / sakit Anda.
+              Masukkan nomor meja laboratorium tempat Anda praktikum.
             </Text>
 
             {/* Submit Button */}
             <TouchableOpacity
-              style={styles.submitButton}
+              style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
               onPress={handleSubmitAttendance}
+              disabled={submitting}
               activeOpacity={0.85}
             >
-              <Text style={styles.submitButtonText}>
-                Kirim Presensi Sekarang
-              </Text>
+              {submitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitButtonText}>
+                  Kirim Presensi Sekarang
+                </Text>
+              )}
             </TouchableOpacity>
 
             <View style={styles.secureNotice}>
@@ -477,7 +444,6 @@ const styles = StyleSheet.create({
   },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
   },
@@ -486,6 +452,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: '#E5E7EB',
     borderRadius: 8,
+    marginRight: 12,
   },
   backButtonText: {
     fontSize: 13,
@@ -495,96 +462,23 @@ const styles = StyleSheet.create({
   appTitleContainer: {
     flex: 1,
   },
-  appSubtitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 0.8,
-  },
   appTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
-  },
-  devBadge: {
-    backgroundColor: '#E0E7FF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#C7D2FE',
-  },
-  devBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#4338CA',
-  },
-  simulationContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  simulationLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  simulationButtonsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  simBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-  },
-  simBtnActive: {
-    borderWidth: 1.5,
-  },
-  simBtnPending: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#F59E0B',
-  },
-  simBtnOpen: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#16A34A',
-  },
-  simBtnClosed: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#EF4444',
-  },
-  simBtnText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  simBtnTextActive: {
-    color: '#0F172A',
-    fontWeight: '700',
+    color: '#1E3A8A',
   },
   sessionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 16,
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   sessionHeaderRow: {
     flexDirection: 'row',
@@ -593,33 +487,31 @@ const styles = StyleSheet.create({
   },
   sessionTitleWrapper: {
     flex: 1,
-    paddingRight: 8,
+    marginRight: 8,
   },
   sessionCourseTitle: {
     fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: '700',
+    color: '#111827',
   },
   sessionModuleName: {
     fontSize: 13,
-    fontWeight: '500',
-    color: '#475569',
+    color: '#4B5563',
     marginTop: 2,
   },
   sessionBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
   },
   sessionBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.3,
+    fontSize: 11,
+    fontWeight: '700',
   },
   sessionMetaDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3F4F6',
     marginVertical: 12,
   },
   sessionMetaGrid: {
@@ -631,13 +523,12 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
+    color: '#6B7280',
   },
   metaValue: {
     fontSize: 12,
-    color: '#1E293B',
     fontWeight: '600',
+    color: '#1F2937',
   },
   profileCard: {
     backgroundColor: '#FFFFFF',
@@ -647,221 +538,196 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    borderColor: '#E5E7EB',
   },
   avatarBox: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#2563EB',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#10B981',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
     color: '#FFFFFF',
+    fontWeight: '700',
     fontSize: 16,
-    fontWeight: '800',
   },
   profileInfo: {
     flex: 1,
   },
   profileRoleBadge: {
     fontSize: 10,
-    fontWeight: '800',
-    color: '#2563EB',
+    fontWeight: '700',
+    color: '#059669',
     letterSpacing: 0.5,
   },
   profileName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1F2937',
+    marginTop: 1,
   },
   profileNim: {
     fontSize: 12,
-    color: '#64748B',
-    fontFamily: 'monospace',
+    color: '#6B7280',
     marginTop: 1,
+  },
+  attendanceLockedContainer: {
+    marginBottom: 16,
+  },
+  gatingCardPending: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  gatingCardClosed: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 14,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  gatingIconBoxYellow: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  gatingIconBoxRed: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  gatingIcon: {
+    fontSize: 24,
+  },
+  gatingTitlePending: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#B45309',
+    marginBottom: 6,
+  },
+  gatingTitleClosed: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#B91C1C',
+    marginBottom: 6,
+  },
+  gatingDescription: {
+    fontSize: 13,
+    color: '#4B5563',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  gatingHintBox: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  gatingHintText: {
+    fontSize: 11,
+    color: '#6B7280',
+    textAlign: 'center',
   },
   formCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 18,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   formSectionTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 4,
+    color: '#111827',
   },
   formSectionSubtitle: {
     fontSize: 12,
-    color: '#64748B',
-    marginBottom: 18,
-    lineHeight: 17,
+    color: '#6B7280',
+    marginTop: 2,
+    marginBottom: 16,
   },
   fieldLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
+    color: '#374151',
     marginBottom: 8,
   },
-  pillsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 18,
-  },
-  pillButton: {
-    flex: 1,
-    minHeight: 46,
-    borderRadius: 10,
+  statusFixedBox: {
+    backgroundColor: '#DCFCE7',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#86EFAC',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 16,
   },
-  pillText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
+  statusFixedText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#15803D',
   },
   textInput: {
     borderWidth: 1,
     borderColor: '#CED4DA',
     borderRadius: 8,
-    padding: 12,
-    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 14,
-    color: '#0F172A',
-    backgroundColor: '#FFFFFF',
+    minHeight: 48,
+    backgroundColor: '#FAFAFA',
+    color: '#1F2937',
   },
   inputHelpText: {
     fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 6,
-    marginBottom: 20,
+    color: '#9CA3AF',
+    marginTop: 4,
+    marginBottom: 18,
   },
   submitButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#16A34A',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 2,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
   },
   submitButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   secureNotice: {
-    marginTop: 14,
+    marginTop: 12,
     alignItems: 'center',
   },
   secureNoticeText: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#6B7280',
     textAlign: 'center',
-    lineHeight: 16,
-  },
-  gatingCardPending: {
-    backgroundColor: '#FFFBEB',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    marginBottom: 20,
-  },
-  gatingCardClosed: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    marginBottom: 20,
-  },
-  gatingIconBoxYellow: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  gatingIconBoxRed: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  gatingIcon: {
-    fontSize: 28,
-  },
-  gatingTitlePending: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#B45309',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  gatingTitleClosed: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#B91C1C',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  gatingDescription: {
-    fontSize: 13,
-    color: '#475569',
-    textAlign: 'center',
-    lineHeight: 19,
-    paddingHorizontal: 10,
-    marginBottom: 16,
-  },
-  gatingHintBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  gatingHintText: {
-    fontSize: 11,
-    color: '#64748B',
-    textAlign: 'center',
-  },
-  historyWrapper: {
-    width: '100%',
-    marginTop: 10,
-  },
-  attendanceLockedContainer: {
-    width: '100%',
   },
 });
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "358775145791",
+    "project_id": "lab-attendance-41997",
+    "storage_bucket": "lab-attendance-41997.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:358775145791:android:cdc121b25d9574efe8bf8a",
+        "android_client_info": {
+          "package_name": "com.myosotis02.PPK1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxKLvMrCcIgzIky64TiRozAsYVyQCYDWI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

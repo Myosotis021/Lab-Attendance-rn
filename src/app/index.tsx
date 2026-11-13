@@ -1,12 +1,12 @@
 import React from 'react';
 import { Stack, useRouter } from 'expo-router';
-import ScheduleListScreen from '../screens/ScheduleListScreen';
-import { Role, SessionItem } from '../data/schedules';
+import { ScheduleListScreen } from '../screens/ScheduleListScreen';
+import { RoleType, SessionItem } from '../types';
 
 export default function Index() {
   const router = useRouter();
 
-  const handleSelectSession = (session: SessionItem, role: Role) => {
+  const handleSelectSession = (session: SessionItem, role: RoleType) => {
     if (role === 'asisten') {
       router.push({
         pathname: '/assistant-session',

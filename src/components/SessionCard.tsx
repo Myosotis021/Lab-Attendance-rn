@@ -1,11 +1,11 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Role, SessionItem, SessionStatus } from '../data/schedules';
+import { RoleType, SessionItem, SessionStatus } from '../types';
 
 interface SessionCardProps {
   session: SessionItem;
-  currentRole: Role;
-  onSelectSession?: (session: SessionItem, currentRole: Role) => void;
+  currentRole: RoleType;
+  onSelectSession?: (session: SessionItem, currentRole: RoleType) => void;
 }
 
 interface StatusBadgeConfig {
@@ -41,7 +41,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
   currentRole,
   onSelectSession,
 }) => {
-  const statusConfig = STATUS_CONFIG[session.status];
+  const statusConfig = STATUS_CONFIG[session.status] || STATUS_CONFIG.BELUM_DIBUKA;
 
   return (
     <View style={styles.card}>
@@ -96,8 +96,6 @@ export const SessionCard: React.FC<SessionCardProps> = ({
   );
 };
 
-export default SessionCard;
-
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
@@ -105,77 +103,74 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     elevation: 3,
-    shadowColor: '#000000',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    marginBottom: 6,
   },
   courseTitle: {
-    flex: 1,
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1F2937',
+    flex: 1,
     marginRight: 8,
-    lineHeight: 22,
   },
   badge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 12,
     borderWidth: 1,
     alignSelf: 'flex-start',
   },
   badgeText: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
   },
   moduleName: {
     fontSize: 14,
-    fontWeight: '600',
     color: '#4B5563',
-    marginTop: 6,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   divider: {
     height: 1,
     backgroundColor: '#F3F4F6',
-    marginVertical: 8,
+    marginBottom: 12,
   },
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
+    justifyContent: 'space-between',
+    marginBottom: 6,
   },
   infoLabel: {
     fontSize: 13,
     color: '#6B7280',
-    fontWeight: '500',
-    width: 100,
   },
   infoValue: {
-    flex: 1,
     fontSize: 13,
+    fontWeight: '500',
     color: '#1F2937',
-    fontWeight: '600',
   },
   actionButton: {
     backgroundColor: '#2563EB',
+    paddingVertical: 12,
     borderRadius: 8,
-    paddingVertical: 11,
-    paddingHorizontal: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 14,
+    marginTop: 10,
   },
   actionButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
     fontWeight: '600',
+    fontSize: 14,
   },
 });
+
+export default SessionCard;

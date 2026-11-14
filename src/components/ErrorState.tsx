@@ -7,11 +7,12 @@ import {
   ViewStyle,
 } from 'react-native';
 
-interface ErrorStateProps {
+export interface ErrorStateProps {
   title?: string;
   message?: string;
   onRetry?: () => void;
   retryLabel?: string;
+  retryText?: string;
   secondaryAction?: {
     label: string;
     onPress: () => void;
@@ -21,12 +22,15 @@ interface ErrorStateProps {
 
 export const ErrorState: React.FC<ErrorStateProps> = ({
   title = 'Terjadi Kesalahan',
-  message = 'Gagal memuat data. Silakan periksa koneksi Anda dan coba lagi.',
+  message = 'Terjadi kesalahan saat memuat data.',
   onRetry,
-  retryLabel = 'Coba Lagi',
+  retryLabel,
+  retryText,
   secondaryAction,
   style,
 }) => {
+  const label = retryLabel || retryText || 'Coba Lagi';
+
   return (
     <View style={[styles.container, style]}>
       <View style={styles.iconCircle}>
@@ -43,7 +47,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
             onPress={onRetry}
             activeOpacity={0.8}
           >
-            <Text style={styles.retryButtonText}>{retryLabel}</Text>
+            <Text style={styles.retryButtonText}>{label}</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -70,11 +74,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F8F9FA',
     padding: 24,
+    minHeight: 220,
   },
   iconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#FEE2E2',
     justifyContent: 'center',
     alignItems: 'center',
@@ -83,7 +88,7 @@ const styles = StyleSheet.create({
     borderColor: '#FECACA',
   },
   iconText: {
-    fontSize: 30,
+    fontSize: 28,
   },
   titleText: {
     fontSize: 18,
@@ -97,7 +102,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     lineHeight: 19,
-    marginBottom: 24,
+    marginBottom: 20,
     paddingHorizontal: 12,
   },
   buttonContainer: {

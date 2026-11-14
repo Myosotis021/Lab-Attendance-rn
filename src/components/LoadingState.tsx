@@ -7,7 +7,7 @@ import {
   ViewStyle,
 } from 'react-native';
 
-interface LoadingStateProps {
+export interface LoadingStateProps {
   message?: string;
   style?: ViewStyle;
   color?: string;
@@ -15,7 +15,7 @@ interface LoadingStateProps {
 }
 
 export const LoadingState: React.FC<LoadingStateProps> = ({
-  message = 'Memuat...',
+  message = 'Memuat data...',
   style,
   color = '#2563EB',
   size = 'large',
@@ -23,7 +23,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   return (
     <View style={[styles.container, style]}>
       <ActivityIndicator size={size} color={color} />
-      {message ? <Text style={styles.messageText}>{message}</Text> : null}
+      {message ? <Text style={styles.text}>{message}</Text> : null}
     </View>
   );
 };
@@ -35,9 +35,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F8F9FA',
     padding: 24,
+    minHeight: 200,
   },
-  messageText: {
-    marginTop: 14,
+  text: {
+    marginTop: 12,
     fontSize: 14,
     color: '#4B5563',
     fontWeight: '500',

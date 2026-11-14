@@ -1,17 +1,19 @@
-import type { Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 
 export type Role = 'asisten' | 'praktikan';
+export type RoleType = Role;
 export type SessionStatus = 'BELUM_DIBUKA' | 'BERJALAN' | 'SELESAI';
+export type AttendanceStatus = 'Hadir' | 'Izin' | 'Sakit';
 export type LeaveStatus = 'MENUNGGU' | 'DITERIMA' | 'DITOLAK';
 export type SentimentLabel = 'negatif' | 'netral' | 'positif';
 
 export interface UserProfile {
   uid: string;
   name: string;
-  email: string;
+  email?: string;
   role: Role;
-  nim: string | null; // null untuk asisten
-  createdAt: Timestamp;
+  nim?: string | null;
+  createdAt?: Timestamp;
 }
 
 export interface ClassItem {
@@ -33,7 +35,7 @@ export interface SessionItem {
   roomName: string;
   timeSlot: string;
   status: SessionStatus;
-  participantIds: string[]; // salinan dari kelas, dipakai untuk query dan rules
+  participantIds: string[]; // salinan dari kelas
   createdBy: string;
   createdAt: Timestamp;
 }
@@ -46,9 +48,10 @@ export interface AttendanceRecord {
   uid: string;
   studentName: string;
   studentNim: string;
-  status: 'Hadir';
+  status: AttendanceStatus;
   notes: string;
-  createdAt: Timestamp; // serverTimestamp()
+  createdAt: Timestamp;
+  timestamp?: string; // Tampilan teks format waktu
 }
 
 export interface SentimentResult {

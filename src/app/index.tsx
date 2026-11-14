@@ -12,15 +12,15 @@ import { StatusBar } from 'expo-status-bar';
 import { Stack, useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { OfflineBanner } from '../components/OfflineBanner';
-import ScheduleListScreen from '../screens/ScheduleListScreen';
-import { Role, SessionItem } from '../data/schedules';
+import { ScheduleListScreen } from '../screens/ScheduleListScreen';
+import { RoleType, SessionItem } from '../types/models';
 
 export default function Index() {
   const router = useRouter();
   const { profile, loading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'jadwal' | 'demo'>('jadwal');
 
-  const handleSelectSession = (session: SessionItem, role: Role) => {
+  const handleSelectSession = (session: SessionItem, role: RoleType) => {
     if (role === 'asisten') {
       router.push({
         pathname: '/assistant-session',
@@ -168,7 +168,6 @@ export default function Index() {
       {activeTab === 'jadwal' ? (
         <View style={styles.flexOne}>
           <ScheduleListScreen
-            initialRole={profile.role === 'asisten' ? 'asisten' : 'praktikan'}
             onSelectSession={handleSelectSession}
           />
         </View>

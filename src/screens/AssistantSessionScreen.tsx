@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,30 +6,24 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { AttendanceRecord, SessionItem, SessionStatus } from '../types';
+import { SessionItem, SessionStatus } from '../types/models';
 import { ConfirmModal } from '../components/ConfirmModal';
-import {
-  AttendanceRecapList,
-  INITIAL_ATTENDEES,
-} from '../components/AttendanceRecapList';
+import { AttendanceRecapList } from '../components/AttendanceRecapList';
+import { listenSession, setSessionStatus } from '../services/sessionService';
+import { useAttendanceBySession } from '../hooks/useAttendanceBySession';
+import { LoadingState } from '../components/LoadingState';
+import { ErrorState } from '../components/ErrorState';
+import { getErrorMessage } from '../utils/getErrorMessage';
 
 export interface AssistantSessionScreenProps {
   session?: SessionItem;
   onBack?: () => void;
 }
-
-export const DEFAULT_MOCK_SESSION: SessionItem = {
-  id: 'ses-1',
-  courseTitle: 'Pemrograman Perangkat Komputasi',
-  moduleName: 'Modul 1: Antarmuka & Alur Praktikum',
-  classGroup: 'Kelas A',
-  roomName: 'Lab Komputer 2',
-  timeSlot: 'Jumat, 13:00 - 15:30 WIB',
-  status: 'BELUM_DIBUKA',
-};
 
 export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
   session: propSession,
@@ -46,48 +40,72 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
     status?: SessionStatus;
   }>();
 
-  // Combine prop, route params, or fallback to default mock session
-  const initialSession: SessionItem = {
-    id: propSession?.id || searchParams.id || DEFAULT_MOCK_SESSION.id,
-    courseTitle:
-      propSession?.courseTitle ||
-      searchParams.courseTitle ||
-      DEFAULT_MOCK_SESSION.courseTitle,
-    moduleName:
-      propSession?.moduleName ||
-      searchParams.moduleName ||
-      DEFAULT_MOCK_SESSION.moduleName,
-    classGroup:
-      propSession?.classGroup ||
-      searchParams.classGroup ||
-      DEFAULT_MOCK_SESSION.classGroup,
-    roomName:
-      propSession?.roomName ||
-      searchParams.roomName ||
-      DEFAULT_MOCK_SESSION.roomName,
-    timeSlot:
-      propSession?.timeSlot ||
-      searchParams.timeSlot ||
-      DEFAULT_MOCK_SESSION.timeSlot,
-    status:
-      propSession?.status ||
-      (searchParams.status as SessionStatus) ||
-      DEFAULT_MOCK_SESSION.status,
-  };
+  const sessionId = propSession?.id || searchParams.id || '';
 
-  // State management for session lifecycle & attendees
-  const [currentStatus, setCurrentStatus] = useState<SessionStatus>(
-    initialSession.status
-  );
-  const [attendees, setAttendees] = useState<AttendanceRecord[]>(INITIAL_ATTENDEES);
+  const [session, setSession] = useState<SessionItem | null>(() => {
+    if (propSession) return propSession;
+    if (searchParams.id) {
+      return {
+        id: searchParams.id,
+        classId: '',
+        courseTitle: searchParams.courseTitle || '',
+        moduleName: searchParams.moduleName || '',
+        classGroup: searchParams.classGroup || '',
+        roomName: searchParams.roomName || '',
+        timeSlot: searchParams.timeSlot || '',
+        status: (searchParams.status as SessionStatus) || 'BELUM_DIBUKA',
+        participantIds: [],
+        createdBy: '',
+        createdAt: null as any,
+      };
+    }
+    return null;
+  });
+
+  const [sessionLoading, setSessionLoading] = useState(Boolean(sessionId));
+  const [sessionError, setSessionError] = useState<string | null>(null);
+
+  // Status updating state to prevent double-clicks
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   // Modal confirmation state
   const [modalVisible, setModalVisible] = useState<boolean>(false);
-  const [pendingAction, setPendingAction] = useState<'OPEN' | 'CLOSE' | null>(
-    null
-  );
+  const [pendingAction, setPendingAction] = useState<'OPEN' | 'CLOSE' | null>(null);
 
-  // Status configuration for badge
+  // Real-time Attendance from Firestore (SRS-11)
+  const {
+    attendanceList,
+    loading: attendanceLoading,
+    error: attendanceError,
+  } = useAttendanceBySession(sessionId);
+
+  // Listen to the session document in real-time
+  useEffect(() => {
+    if (!sessionId) {
+      return;
+    }
+
+    const unsubscribe = listenSession(
+      sessionId,
+      (updatedSession) => {
+        if (updatedSession) {
+          setSession(updatedSession);
+        }
+        setSessionLoading(false);
+        setSessionError(null);
+      },
+      (err) => {
+        setSessionError(getErrorMessage(err));
+        setSessionLoading(false);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [sessionId]);
+
+  // Status badge config
   const getStatusBadgeConfig = (status: SessionStatus) => {
     switch (status) {
       case 'BELUM_DIBUKA':
@@ -117,32 +135,41 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
     }
   };
 
-  // Trigger modal for Open Session
   const handleOpenSessionPress = () => {
-    if (currentStatus !== 'BELUM_DIBUKA') return;
+    if (session?.status !== 'BELUM_DIBUKA' || isUpdatingStatus) return;
     setPendingAction('OPEN');
     setModalVisible(true);
   };
 
-  // Trigger modal for Close Session
   const handleCloseSessionPress = () => {
-    if (currentStatus !== 'BERJALAN') return;
+    if (session?.status !== 'BERJALAN' || isUpdatingStatus) return;
     setPendingAction('CLOSE');
     setModalVisible(true);
   };
 
-  // Confirm modal action handler
-  const handleConfirmAction = () => {
-    if (pendingAction === 'OPEN') {
-      setCurrentStatus('BERJALAN');
-    } else if (pendingAction === 'CLOSE') {
-      setCurrentStatus('SELESAI');
+  const handleConfirmAction = async () => {
+    if (!session || !pendingAction) return;
+
+    try {
+      setIsUpdatingStatus(true);
+      setModalVisible(false);
+
+      if (pendingAction === 'OPEN') {
+        await setSessionStatus(session.id, 'BERJALAN');
+      } else if (pendingAction === 'CLOSE') {
+        await setSessionStatus(session.id, 'SELESAI');
+      }
+    } catch (err: unknown) {
+      const msg = getErrorMessage(err);
+      Alert.alert('Gagal Mengubah Status', msg);
+    } finally {
+      setIsUpdatingStatus(false);
+      setPendingAction(null);
     }
-    setModalVisible(false);
-    setPendingAction(null);
   };
 
   const handleCancelAction = () => {
+    if (isUpdatingStatus) return;
     setModalVisible(false);
     setPendingAction(null);
   };
@@ -157,49 +184,30 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
     }
   };
 
-  // Demo helper: toggle empty state for reviewer testing
-  const toggleEmptyAttendees = () => {
-    if (attendees.length > 0) {
-      setAttendees([]);
-    } else {
-      setAttendees(INITIAL_ATTENDEES);
-    }
-  };
-
-  // Demo helper: reset session status to BELUM_DIBUKA
-  const handleResetSession = () => {
-    setCurrentStatus('BELUM_DIBUKA');
-    setAttendees(INITIAL_ATTENDEES);
-  };
-
-  // Demo helper: simulate a student attending
-  const handleAddSampleAttendee = () => {
-    const newId = `att-${Date.now()}`;
-    const currentTime = new Date().toLocaleTimeString('id-ID') + ' WIB';
-    const sampleNames = ['Rizky Pratama', 'Nabila Zahra', 'Fajar Ramadhan', 'Dina Lestari'];
-    const randomName = sampleNames[Math.floor(Math.random() * sampleNames.length)];
-    const randomNim = `2201010${Math.floor(10 + Math.random() * 89)}`;
-
-    setAttendees((prev) => [
-      ...prev,
-      {
-        id: newId,
-        studentName: randomName,
-        studentNim: randomNim,
-        timestamp: currentTime,
-        status: 'Hadir',
-        notes: 'Meja Lab: PC-08',
-      },
-    ]);
-  };
-
+  const currentStatus = session?.status || 'BELUM_DIBUKA';
   const badgeConfig = getStatusBadgeConfig(currentStatus);
+
+  if (sessionLoading && !session) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <LoadingState message="Memuat informasi sesi..." />
+      </SafeAreaView>
+    );
+  }
+
+  if (sessionError && !session) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ErrorState message={sessionError} onRetry={() => router.back()} retryText="Kembali" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
 
-      {/* Top App Header */}
+      {/* Header Bar */}
       <View style={styles.headerBar}>
         <TouchableOpacity
           onPress={handleBackPress}
@@ -219,11 +227,10 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
       >
         {/* 2.1 Kartu Header Sesi Praktikum */}
         <View style={styles.sessionCard}>
-          {/* Top row: Title & Status Badge */}
           <View style={styles.cardTopRow}>
             <View style={styles.titleContainer}>
-              <Text style={styles.courseTitle}>{initialSession.courseTitle}</Text>
-              <Text style={styles.moduleName}>{initialSession.moduleName}</Text>
+              <Text style={styles.courseTitle}>{session?.courseTitle}</Text>
+              <Text style={styles.moduleName}>{session?.moduleName}</Text>
             </View>
             <View style={[styles.statusBadge, badgeConfig.containerStyle]}>
               <Text style={[styles.statusBadgeText, badgeConfig.textStyle]}>
@@ -232,20 +239,18 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
             </View>
           </View>
 
-          {/* Divider */}
           <View style={styles.cardDivider} />
 
-          {/* Session Metadata Info */}
           <View style={styles.metaContainer}>
             <View style={styles.metaRow}>
               <Text style={styles.metaIcon}>🏫</Text>
               <Text style={styles.metaText}>
-                {initialSession.classGroup} • {initialSession.roomName}
+                {session?.classGroup} • {session?.roomName}
               </Text>
             </View>
             <View style={styles.metaRow}>
               <Text style={styles.metaIcon}>🕒</Text>
-              <Text style={styles.metaText}>{initialSession.timeSlot}</Text>
+              <Text style={styles.metaText}>{session?.timeSlot}</Text>
             </View>
           </View>
         </View>
@@ -257,11 +262,20 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
           {currentStatus === 'BELUM_DIBUKA' && (
             <View>
               <TouchableOpacity
-                style={[styles.mainActionButton, styles.btnOpenSession]}
+                style={[
+                  styles.mainActionButton,
+                  styles.btnOpenSession,
+                  isUpdatingStatus && styles.btnDisabled,
+                ]}
                 onPress={handleOpenSessionPress}
+                disabled={isUpdatingStatus}
                 activeOpacity={0.8}
               >
-                <Text style={styles.mainActionButtonText}>▶ Buka Sesi Praktikum</Text>
+                {isUpdatingStatus ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.mainActionButtonText}>▶ Buka Sesi Praktikum</Text>
+                )}
               </TouchableOpacity>
               <Text style={styles.actionHint}>
                 Praktikan akan dapat melakukan presensi kehadiran setelah sesi dibuka.
@@ -272,14 +286,23 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
           {currentStatus === 'BERJALAN' && (
             <View>
               <TouchableOpacity
-                style={[styles.mainActionButton, styles.btnCloseSession]}
+                style={[
+                  styles.mainActionButton,
+                  styles.btnCloseSession,
+                  isUpdatingStatus && styles.btnDisabled,
+                ]}
                 onPress={handleCloseSessionPress}
+                disabled={isUpdatingStatus}
                 activeOpacity={0.8}
               >
-                <Text style={styles.mainActionButtonText}>⏹ Tutup Sesi Praktikum</Text>
+                {isUpdatingStatus ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.mainActionButtonText}>⏹ Tutup Sesi Praktikum</Text>
+                )}
               </TouchableOpacity>
               <Text style={styles.actionHint}>
-                Sesi sedang berlangsung. Tutup sesi jika waktu praktikum telah berakhir.
+                Sesi sedang berlangsung secara real-time. Tutup sesi jika waktu praktikum telah berakhir.
               </Text>
             </View>
           )}
@@ -294,49 +317,20 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
                 <Text style={styles.mainActionButtonText}>🔒 Sesi Telah Ditutup (Selesai)</Text>
               </TouchableOpacity>
               <Text style={styles.actionHint}>
-                Sesi praktikum telah diakhiri. Pengisian presensi telah dikunci dan tidak dapat diubah.
+                Sesi praktikum telah diakhiri. Pengisian presensi telah dikunci dan tidak dapat diubah kembali.
               </Text>
             </View>
           )}
         </View>
 
-        {/* Interactive Demo Helpers (for Examiners/Reviewers) */}
-        <View style={styles.demoBox}>
-          <Text style={styles.demoTitle}>🛠️ Mode Pengujian Demo (Sprint 1)</Text>
-          <Text style={styles.demoSubtitle}>
-            Gunakan kontrol di bawah ini untuk menguji seluruh Acceptance Criteria:
-          </Text>
-          <View style={styles.demoButtonsRow}>
-            <TouchableOpacity
-              style={styles.demoButton}
-              onPress={handleResetSession}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.demoButtonText}>🔄 Reset Sesi</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.demoButton}
-              onPress={toggleEmptyAttendees}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.demoButtonText}>
-                {attendees.length > 0 ? '🗑️ Kosongkan Data' : '📋 Isi Data Dummy'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.demoButton}
-              onPress={handleAddSampleAttendee}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.demoButtonText}>➕ Tambah Hadir</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 2.3 Rekapitulasi Kehadiran Praktikan */}
-        <AttendanceRecapList attendees={attendees} />
+        {/* 2.3 Rekapitulasi Kehadiran Praktikan Real-time (SRS-11) */}
+        {attendanceLoading ? (
+          <LoadingState message="Memuat rekap presensi..." />
+        ) : attendanceError ? (
+          <ErrorState message={attendanceError} />
+        ) : (
+          <AttendanceRecapList attendees={attendanceList} />
+        )}
       </ScrollView>
 
       {/* Confirmation Modal */}
@@ -350,7 +344,7 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
         message={
           pendingAction === 'OPEN'
             ? 'Praktikan akan dapat melakukan presensi kehadiran setelah sesi dibuka.'
-            : 'Sesi yang ditutup tidak dapat dibuka kembali dan presensi akan diakhiri.'
+            : 'Sesi yang ditutup tidak dapat dibuka kembali dan presensi akan diakhiri secara permanen.'
         }
         confirmText={
           pendingAction === 'OPEN' ? 'Ya, Buka Sekarang' : 'Ya, Tutup Sesi'
@@ -381,14 +375,12 @@ const styles = StyleSheet.create({
   },
   backButton: {
     paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
   },
   backButtonText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: '#2563EB',
   },
   headerBarTitle: {
     fontSize: 16,
@@ -396,7 +388,7 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   headerSpacer: {
-    width: 65,
+    width: 60,
   },
   scrollView: {
     flex: 1,
@@ -415,12 +407,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   cardTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: 8,
   },
   titleContainer: {
     flex: 1,
@@ -430,45 +423,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 4,
   },
   moduleName: {
     fontSize: 13,
     color: '#4B5563',
-    lineHeight: 18,
+    marginTop: 2,
   },
   statusBadge: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
     borderWidth: 1,
-    alignSelf: 'flex-start',
   },
   statusBadgeText: {
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontWeight: '700',
   },
   badgeBelumDibuka: {
     backgroundColor: '#FEF3C7',
-    borderColor: '#F59E0B',
+    borderColor: '#FDE68A',
   },
   badgeTextBelumDibuka: {
-    color: '#B45309',
+    color: '#D97706',
   },
   badgeBerjalan: {
     backgroundColor: '#DCFCE7',
-    borderColor: '#22C55E',
+    borderColor: '#BBF7D0',
   },
   badgeTextBerjalan: {
     color: '#15803D',
   },
   badgeSelesai: {
     backgroundColor: '#FEE2E2',
-    borderColor: '#EF4444',
+    borderColor: '#FECACA',
   },
   badgeTextSelesai: {
-    color: '#B91C1C',
+    color: '#DC2626',
   },
   cardDivider: {
     height: 1,
@@ -481,102 +471,61 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   metaIcon: {
     fontSize: 14,
+    marginRight: 8,
   },
   metaText: {
     fontSize: 13,
     color: '#4B5563',
-    fontWeight: '500',
   },
   actionSection: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 16,
     marginBottom: 16,
-    elevation: 3,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   sectionHeading: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#374151',
+    color: '#1F2937',
     marginBottom: 12,
   },
   mainActionButton: {
-    borderRadius: 10,
     paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
   },
   btnOpenSession: {
-    backgroundColor: '#16A34A', // Hijau/biru sesuai spesifikasi
+    backgroundColor: '#10B981',
   },
   btnCloseSession: {
-    backgroundColor: '#DC2626', // Merah/oranye sesuai spesifikasi
+    backgroundColor: '#EF4444',
   },
   btnDisabled: {
     backgroundColor: '#9CA3AF',
-    opacity: 0.5,
+    opacity: 0.6,
   },
   mainActionButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   actionHint: {
     fontSize: 12,
     color: '#6B7280',
-    textAlign: 'center',
     marginTop: 8,
+    textAlign: 'center',
     lineHeight: 16,
-  },
-  demoBox: {
-    backgroundColor: '#F0F9FF',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-  },
-  demoTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0369A1',
-    marginBottom: 2,
-  },
-  demoSubtitle: {
-    fontSize: 11,
-    color: '#0C4A6E',
-    marginBottom: 8,
-  },
-  demoButtonsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  demoButton: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#7DD3FC',
-  },
-  demoButtonText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#0284C7',
   },
 });
 

@@ -8,6 +8,7 @@ import {
   Pressable,
 } from 'react-native';
 import { AttendanceRecord, AttendanceStatus } from '../types';
+import { formatAttendanceTime } from '../services/attendanceService';
 
 interface AttendanceFeedbackModalProps {
   visible: boolean;
@@ -101,7 +102,9 @@ export const AttendanceFeedbackModal: React.FC<AttendanceFeedbackModalProps> = (
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Waktu Presensi</Text>
-              <Text style={styles.summaryValueHighlight}>{attendanceData.timestamp}</Text>
+              <Text style={styles.summaryValueHighlight}>
+                {attendanceData.timestamp || formatAttendanceTime(attendanceData.createdAt)}
+              </Text>
             </View>
 
             <View style={styles.divider} />

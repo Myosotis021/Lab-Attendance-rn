@@ -20,6 +20,20 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="class-management"
+          options={{
+            title: 'Kelola Kelas',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="session-management"
+          options={{
+            title: 'Kelola Jadwal & Sesi',
+            headerShown: false,
+          }}
+        />
       </Stack>
     </AuthProvider>
   );

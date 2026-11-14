@@ -158,7 +158,7 @@ export default function Index() {
                 activeTab === 'demo' && styles.tabButtonTextActive,
               ]}
             >
-              🚀 Demo DEV-3
+              🚀 Pintasan &amp; Demo
             </Text>
           </TouchableOpacity>
         </View>
@@ -184,108 +184,117 @@ export default function Index() {
             <Text style={styles.welcomeEmail}>{profile.email}</Text>
           </View>
 
-          {/* Developer 3 Feature Card */}
+          {/* Quick Actions Card per Peran */}
           <View style={styles.card}>
             <View style={styles.badgeDev}>
-              <Text style={styles.badgeDevText}>DEVELOPER 3</Text>
+              <Text style={styles.badgeDevText}>
+                {profile.role === 'asisten' ? 'MENU ASISTEN LAB' : 'MENU MAHASISWA PRAKTIKAN'}
+              </Text>
             </View>
             <Text style={styles.cardTitle}>
-              Presensi Praktikan, Anti-Double Submit &amp; Modal Feedback
+              {profile.role === 'asisten'
+                ? 'Kelola Data Praktikum & Izin'
+                : 'Layanan Presensi & Perizinan'}
             </Text>
             <Text style={styles.cardDesc}>
-              Fitur portal untuk Mahasiswa Praktikan dalam melakukan presensi
-              kehadiran: proteksi status sesi (gating), pemilihan status
-              kehadiran, catatan nomor meja lab, modal umpan balik sukses
-              beranimasi, pencegahan presensi ganda (anti-double attendance), serta
-              kartu bukti riwayat kehadiran mandiri.
+              {profile.role === 'asisten'
+                ? 'Pintasan navigasi cepat untuk asisten lab dalam mengelola kelas, sesi praktikum, serta memeriksa permohonan izin praktikan beranalisis sentimen AI.'
+                : 'Pintasan navigasi cepat untuk mahasiswa praktikan dalam mengisi presensi sesi berjalan, mengajukan izin berhalangan hadir, dan memantau status secara real-time.'}
             </Text>
 
             {/* Quick Demo Navigation Buttons */}
             <View style={styles.buttonStack}>
-              <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={() =>
-                  router.push({
-                    pathname: '/student-attendance',
-                    params: {
-                      id: 'ses-1',
-                      courseTitle: 'Pemrograman Perangkat Komputasi',
-                      moduleName: 'Modul 1: Antarmuka & Alur Praktikum',
-                      classGroup: 'Kelas A',
-                      roomName: 'Lab Komputer 2',
-                      timeSlot: 'Jumat, 13:00 - 15:30 WIB',
-                      status: 'BERJALAN',
-                    },
-                  })
-                }
-                activeOpacity={0.8}
-              >
-                <Text style={styles.primaryButtonText}>
-                  ✍️ Masuk Presensi Praktikan (BERJALAN)
-                </Text>
-              </TouchableOpacity>
+              {profile.role === 'asisten' ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={() => router.push('/class-management' as any)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      📚 Kelola Kelas &amp; Sinkronisasi Peserta
+                    </Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.warningButton}
-                onPress={() =>
-                  router.push({
-                    pathname: '/student-attendance',
-                    params: {
-                      id: 'ses-1',
-                      courseTitle: 'Pemrograman Perangkat Komputasi',
-                      moduleName: 'Modul 1: Antarmuka & Alur Praktikum',
-                      classGroup: 'Kelas A',
-                      roomName: 'Lab Komputer 2',
-                      timeSlot: 'Jumat, 13:00 - 15:30 WIB',
-                      status: 'BELUM_DIBUKA',
-                    },
-                  })
-                }
-                activeOpacity={0.8}
-              >
-                <Text style={styles.warningButtonText}>
-                  ⏳ Uji Gating: Sesi BELUM DIBUKA
-                </Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={() => router.push('/session-management' as any)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      🗓️ Kelola Jadwal &amp; Sesi Praktikum
+                    </Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.dangerButton}
-                onPress={() =>
-                  router.push({
-                    pathname: '/student-attendance',
-                    params: {
-                      id: 'ses-2',
-                      courseTitle: 'Jaringan Komputer',
-                      moduleName: 'Modul 2: Routing Dinamis',
-                      classGroup: 'Kelas B',
-                      roomName: 'Lab Jaringan',
-                      timeSlot: 'Sabtu, 08:00 - 10:30 WIB',
-                      status: 'SELESAI',
-                    },
-                  })
-                }
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dangerButtonText}>
-                  🔒 Uji Gating: Sesi SELESAI / Ditutup
-                </Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={() => router.push('/assistant-leave-review' as any)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      📋 Review Izin Praktikan &amp; Sentimen AI
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={() => router.push('/leave-request-form' as any)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      ✉️ Ajukan Permohonan Izin (AI Sentiment)
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={() => router.push('/my-leave-requests' as any)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      📋 Pantau Status Izin Saya (Real-time)
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/student-attendance',
+                        params: {
+                          id: 'ses-1',
+                          courseTitle: 'Pemrograman Perangkat Komputasi',
+                          moduleName: 'Modul 1: Antarmuka & Alur Praktikum',
+                          classGroup: 'Kelas A',
+                          roomName: 'Lab Komputer 2',
+                          timeSlot: 'Jumat, 13:00 - 15:30 WIB',
+                          status: 'BERJALAN',
+                        },
+                      })
+                    }
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      ✍️ Presensi Praktikan (Simulasi Sesi BERJALAN)
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
 
           {/* Acceptance Criteria Checklist */}
           <View style={styles.criteriaCard}>
             <Text style={styles.criteriaTitle}>
-              Fitur Developer 3 (Kriteria Keberterimaan Selesai):
+              Cakupan Fitur Terintegrasi Sprint 2 (3 Modul):
             </Text>
             {[
-              '✅ Form presensi terkunci jika status sesi adalah BELUM_DIBUKA atau SELESAI (Form Gating).',
-              '✅ Mahasiswa dapat memilih status (Hadir, Izin, Sakit) dengan styling warna aktif dinamis.',
-              '✅ Input catatan tambahan opsional (Nomor Meja Lab: PC-04).',
-              '✅ Waktu kehadiran tercatat secara otomatis real-time (Jam lokal sistem WIB).',
-              '✅ Modal pop-up sukses (AttendanceFeedbackModal) dengan ikon centang hijau & ringkasan kehadiran.',
-              '✅ Anti-double attendance: setelah submit, form langsung terkunci & digantikan dengan kartu bukti kehadiran (StudentHistoryCard).',
-              '✅ Tombol switch simulasi status sesi di bagian atas layar untuk kemudahan demo.',
+              '✅ Modul 1 (Dev 1): Firebase Auth, Profil Firestore, Validasi Input, Error Bahasa Indonesia, dan Security Rules.',
+              '✅ Modul 2 (Dev 2): CRUD Kelas (Batch sync peserta ke sesi), CRUD Sesi, Transaksi Buka/Tutup Sesi, Presensi Anti-Double, Rekapitulasi Real-time.',
+              '✅ Modul 3 (Dev 3): Pengajuan Izin Sesi Belum Dibuka, Klasifikasi Sentimen AI Lokal (Offline TF-IDF EDOM), Pemantauan Real-time, dan Keputusan Asisten.',
+              '✅ Route Guard: Pembatasan akses layar antar-peran (Asisten vs Praktikan).',
             ].map((item, idx) => (
               <Text key={idx} style={styles.criteriaItem}>
                 {item}

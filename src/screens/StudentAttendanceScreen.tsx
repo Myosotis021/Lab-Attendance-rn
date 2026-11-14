@@ -233,6 +233,19 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
     }
   };
 
+  if (profile?.role === 'asisten') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ErrorState
+          title="Akses Ditolak"
+          message="Halaman ini khusus untuk Mahasiswa Praktikan melakukan presensi kehadiran."
+          onRetry={handleBack}
+          retryText="Kembali"
+        />
+      </SafeAreaView>
+    );
+  }
+
   if (loadingSession && !currentSession) {
     return (
       <SafeAreaView style={styles.safeArea}>

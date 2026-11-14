@@ -18,6 +18,7 @@ import { listenSession, setSessionStatus } from '../services/sessionService';
 import { useAttendanceBySession } from '../hooks/useAttendanceBySession';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
+import { useAuth } from '../hooks/useAuth';
 import { getErrorMessage } from '../utils/getErrorMessage';
 
 export interface AssistantSessionScreenProps {
@@ -30,6 +31,7 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
   onBack,
 }) => {
   const router = useRouter();
+  const { profile } = useAuth();
   const searchParams = useLocalSearchParams<{
     id?: string;
     courseTitle?: string;
@@ -186,6 +188,19 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
 
   const currentStatus = session?.status || 'BELUM_DIBUKA';
   const badgeConfig = getStatusBadgeConfig(currentStatus);
+
+  if (profile?.role !== 'asisten') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ErrorState
+          title="Akses Ditolak"
+          message="Anda tidak memiliki izin untuk mengakses halaman ini. Halaman ini khusus untuk Asisten Laboratorium."
+          onRetry={handleBackPress}
+          retryText="Kembali"
+        />
+      </SafeAreaView>
+    );
+  }
 
   if (sessionLoading && !session) {
     return (

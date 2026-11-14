@@ -18,6 +18,7 @@ import { getErrorMessage } from '../utils/errors';
 import UserHeader from '../components/UserHeader';
 import SentimentBadge from '../components/SentimentBadge';
 import LeaveStatusBadge from '../components/LeaveStatusBadge';
+import ErrorState from '../components/ErrorState';
 import { INITIAL_SCHEDULES } from '../data/schedules';
 
 interface SessionOption {
@@ -39,7 +40,7 @@ export const LeaveRequestFormScreen: React.FC<LeaveRequestFormScreenProps> = ({
   onSuccessNavigate,
   onBack,
 }) => {
-  const { profile } = useAuth('praktikan');
+  const { profile } = useAuth();
   const [sessions, setSessions] = useState<SessionOption[]>([]);
   const [loadingSessions, setLoadingSessions] = useState<boolean>(true);
   const [selectedSession, setSelectedSession] = useState<SessionOption | null>(null);
@@ -61,29 +62,29 @@ export const LeaveRequestFormScreen: React.FC<LeaveRequestFormScreenProps> = ({
     async function loadSessions() {
       setLoadingSessions(true);
       try {
-        const q = query(
-          collection(db, 'sessions'),
-          where('status', '==', 'BELUM_DIBUKA')
-        );
+        const q = profile?.uid
+          ? query(
+              collection(db, 'sessions'),
+              where('status', '==', 'BELUM_DIBUKA'),
+              where('participantIds', 'array-contains', profile.uid)
+            )
+          : query(
+              collection(db, 'sessions'),
+              where('status', '==', 'BELUM_DIBUKA')
+            );
         const snapshot = await getDocs(q);
         const fetched: SessionOption[] = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          // Check if participantIds includes current student if field exists
-          if (
-            !data.participantIds ||
-            data.participantIds.includes(profile.uid)
-          ) {
-            fetched.push({
-              id: docSnap.id,
-              courseTitle: data.courseTitle || 'Praktikum',
-              moduleName: data.moduleName || 'Modul',
-              classGroup: data.classGroup || '',
-              roomName: data.roomName || '',
-              timeSlot: data.timeSlot || '',
-              status: data.status,
-            });
-          }
+          fetched.push({
+            id: docSnap.id,
+            courseTitle: data.courseTitle || 'Praktikum',
+            moduleName: data.moduleName || 'Modul',
+            classGroup: data.classGroup || '',
+            roomName: data.roomName || '',
+            timeSlot: data.timeSlot || '',
+            status: data.status,
+          });
         });
 
         if (fetched.length > 0 && isMounted) {
@@ -119,7 +120,7 @@ export const LeaveRequestFormScreen: React.FC<LeaveRequestFormScreenProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [profile.uid]);
+  }, [profile?.uid]);
 
   // Check if current student already submitted request for the selected session
   useEffect(() => {
@@ -224,6 +225,19 @@ export const LeaveRequestFormScreen: React.FC<LeaveRequestFormScreenProps> = ({
       onSuccessNavigate();
     }
   };
+
+  if (profile?.role === 'asisten') {
+    return (
+      <View style={styles.container}>
+        <ErrorState
+          title="Akses Ditolak"
+          message="Halaman pengajuan izin khusus untuk Mahasiswa Praktikan."
+          onRetry={onBack}
+          retryText="Kembali"
+        />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>

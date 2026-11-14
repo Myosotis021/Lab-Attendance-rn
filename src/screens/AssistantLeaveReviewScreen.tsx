@@ -27,7 +27,7 @@ interface AssistantLeaveReviewScreenProps {
 export const AssistantLeaveReviewScreen: React.FC<AssistantLeaveReviewScreenProps> = ({
   onBack,
 }) => {
-  const { profile } = useAuth('asisten');
+  const { profile } = useAuth();
   const { requests, loading, error, retry } = useAllLeaveRequests();
 
   // Tab filter: 'MENUNGGU' (default) vs 'SEMUA'
@@ -40,6 +40,19 @@ export const AssistantLeaveReviewScreen: React.FC<AssistantLeaveReviewScreenProp
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [isDeciding, setIsDeciding] = useState<boolean>(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  if (profile?.role !== 'asisten') {
+    return (
+      <View style={styles.container}>
+        <ErrorState
+          title="Akses Ditolak"
+          message="Anda tidak memiliki izin untuk mengakses halaman ini. Halaman ini khusus untuk Asisten Laboratorium."
+          onRetry={onBack}
+          retryText="Kembali"
+        />
+      </View>
+    );
+  }
 
   const filteredRequests = requests.filter((r) => {
     if (activeTab === 'MENUNGGU') {

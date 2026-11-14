@@ -23,8 +23,21 @@ export const MyLeaveRequestsScreen: React.FC<MyLeaveRequestsScreenProps> = ({
   onNavigateToForm,
   onBack,
 }) => {
-  const { profile } = useAuth('praktikan');
+  const { profile } = useAuth();
   const { requests, loading, error, retry } = useMyLeaveRequests(profile?.uid);
+
+  if (profile?.role === 'asisten') {
+    return (
+      <View style={styles.container}>
+        <ErrorState
+          title="Akses Ditolak"
+          message="Halaman ini khusus untuk Mahasiswa Praktikan untuk memantau status izin."
+          onRetry={onBack}
+          retryText="Kembali"
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

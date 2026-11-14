@@ -134,7 +134,7 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
           </TouchableOpacity>
         ) : null}
 
-        {onLogout ? (
+        {onLogout || contextLogout ? (
           <TouchableOpacity
             style={styles.logoutButton}
             onPress={handleLogoutPress}

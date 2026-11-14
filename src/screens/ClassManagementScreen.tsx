@@ -42,6 +42,7 @@ export const ClassManagementScreen: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
+    if (profile?.role !== 'asisten') return;
     const unsubscribe = listenClasses(
       (data) => {
         // Urutkan kelas berdasarkan judul/nama
@@ -59,7 +60,7 @@ export const ClassManagementScreen: React.FC = () => {
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [profile?.role]);
 
   const handleOpenAddModal = () => {
     setSelectedClass(null);
@@ -107,6 +108,19 @@ export const ClassManagementScreen: React.FC = () => {
       });
     }
   };
+
+  if (profile?.role !== 'asisten') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ErrorState
+          title="Akses Ditolak"
+          message="Anda tidak memiliki izin untuk mengakses halaman ini. Halaman ini khusus untuk Asisten Laboratorium."
+          onRetry={() => router.replace('/')}
+          retryText="Kembali ke Beranda"
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>

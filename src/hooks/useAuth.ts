@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { UserProfile, RoleType } from '../types/models';
+import AuthContext from '../context/AuthContext';
 
 export const MOCK_USERS: Record<RoleType, UserProfile> = {
   asisten: {
@@ -33,41 +34,61 @@ export const setGlobalActiveRole = (role: RoleType) => {
 };
 
 export function useAuth(defaultRole?: RoleType) {
-  const [role, setRole] = useState<RoleType>(() => defaultRole || activeMockRole);
-  const loading = false;
+  const authContext = useContext(AuthContext);
+
+  const [mockRole, setMockRole] = useState<RoleType>(() => defaultRole || activeMockRole);
   const [customProfile, setCustomProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     if (defaultRole) {
       return;
     }
-    const listener = (newRole: RoleType) => setRole(newRole);
+    const listener = (newRole: RoleType) => setMockRole(newRole);
     listeners.add(listener);
     return () => {
       listeners.delete(listener);
     };
   }, [defaultRole]);
 
-  const profile = customProfile || MOCK_USERS[role] || MOCK_USERS.asisten;
+  // Prioritas profil:
+  // 1. Custom override profile (jika diset via setProfile)
+  // 2. Real Firestore profile dari AuthContext (jika user login Firebase)
+  // 3. Fallback mock user (untuk kemudahan demo / offline tanpa auth)
+  const realProfile = authContext?.profile;
+  const profile: UserProfile =
+    customProfile ||
+    realProfile ||
+    (defaultRole ? MOCK_USERS[defaultRole] : MOCK_USERS[mockRole]) ||
+    MOCK_USERS.asisten;
+
+  const role: RoleType = profile.role || (defaultRole || mockRole);
+  const loading = authContext ? authContext.loading : false;
 
   const switchRole = (newRole: RoleType) => {
     setGlobalActiveRole(newRole);
+    setMockRole(newRole);
   };
 
   const setProfile = (newProfile: UserProfile) => {
     setCustomProfile(newProfile);
     if (newProfile.role) {
-      setRole(newProfile.role);
+      setMockRole(newProfile.role);
     }
   };
 
   return {
-    user: { uid: profile.uid, email: profile.email || '' },
+    user: authContext?.user
+      ? authContext.user
+      : { uid: profile.uid, email: profile.email || '' },
     profile,
     loading,
     role,
     switchRole,
     setProfile,
+    login: authContext?.login || (async () => {}),
+    register: authContext?.register || (async () => {}),
+    logout: authContext?.logout || (async () => {}),
+    refreshProfile: authContext?.refreshProfile || (async () => {}),
   };
 }
 

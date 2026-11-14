@@ -34,6 +34,27 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="leave-request-form"
+          options={{
+            title: 'Pengajuan Izin',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="my-leave-requests"
+          options={{
+            title: 'Daftar Izin Saya',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="assistant-leave-review"
+          options={{
+            title: 'Review Izin Praktikan',
+            headerShown: false,
+          }}
+        />
       </Stack>
     </AuthProvider>
   );

@@ -95,9 +95,13 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
           </Text>
           <Text style={styles.userSubtitle}>
             {isAsisten
-              ? 'Asisten Laboratorium'
+              ? profile.identifier
+                ? `ID: ${profile.identifier}`
+                : 'Asisten Laboratorium'
               : profile.nim
               ? `NIM: ${profile.nim}`
+              : profile.identifier
+              ? `ID: ${profile.identifier}`
               : profile.email || 'Praktikan'}
           </Text>
         </View>

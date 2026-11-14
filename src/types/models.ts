@@ -11,8 +11,10 @@ export interface UserProfile {
   uid: string;
   name: string;
   email?: string;
-  role: Role;
+  role: RoleType;
   nim?: string | null;
+  identifier?: string;
+  classId?: string;
   createdAt?: Timestamp;
 }
 
@@ -38,6 +40,19 @@ export interface SessionItem {
   participantIds: string[]; // salinan dari kelas
   createdBy: string;
   createdAt: Timestamp;
+}
+
+export interface SessionDoc {
+  id: string;
+  classId: string;
+  courseTitle: string;
+  moduleName: string;
+  roomName: string;
+  timeSlot: string;
+  status: SessionStatus;
+  participantIds?: string[];
+  openedAt?: any;
+  closedAt?: any;
 }
 
 // Dokumen: attendance/{sessionId}_{uid}

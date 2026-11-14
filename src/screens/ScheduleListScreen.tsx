@@ -101,6 +101,49 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
         </View>
       )}
 
+      {/* Fitur Izin & AI (Developer 3 / AI Leave) */}
+      <View style={styles.featureBox}>
+        <View style={styles.featureBoxHeader}>
+          <Text style={styles.featureBoxTitle}>
+            {isAsisten ? '📋 Pengelolaan Izin Praktikan' : '✉️ Layanan Izin Praktikan'}
+          </Text>
+          <View style={styles.aiTag}>
+            <Text style={styles.aiTagText}>AI Powered</Text>
+          </View>
+        </View>
+
+        {isAsisten ? (
+          <TouchableOpacity
+            style={styles.featureActionPrimary}
+            onPress={() => router.push('/assistant-leave-review' as any)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.featureActionPrimaryText}>Review Pengajuan Izin</Text>
+            <Text style={styles.featureActionSubtext}>Periksa dan putuskan izin praktikan</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.featureRowButtons}>
+            <TouchableOpacity
+              style={[styles.featureActionSecondary, styles.flexOne]}
+              onPress={() => router.push('/leave-request-form' as any)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.featureActionSecondaryText}>+ Ajukan Izin</Text>
+              <Text style={styles.featureActionSmallSubtext}>Sesi Belum Dibuka</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.featureActionSecondary, styles.flexOne]}
+              onPress={() => router.push('/my-leave-requests' as any)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.featureActionSecondaryText}>Status Izin Saya</Text>
+              <Text style={styles.featureActionSmallSubtext}>Pantau Real-time</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
       {/* Judul Bagian Jadwal */}
       <View style={styles.sectionHeader}>
         <View>
@@ -219,6 +262,86 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     fontWeight: '700',
     fontSize: 13,
+  },
+  featureBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  featureBoxHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  featureBoxTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  aiTag: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  aiTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  featureActionPrimary: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  featureActionPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  featureActionSubtext: {
+    color: '#BFDBFE',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  featureRowButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  featureActionSecondary: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  featureActionSecondaryText: {
+    color: '#1E293B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  featureActionSmallSubtext: {
+    color: '#64748B',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  flexOne: {
+    flex: 1,
   },
   sectionHeader: {
     flexDirection: 'row',

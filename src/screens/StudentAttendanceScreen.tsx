@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,8 @@ import {
 } from '../types';
 import AttendanceFeedbackModal from '../components/AttendanceFeedbackModal';
 import StudentHistoryCard from '../components/StudentHistoryCard';
+import { OfflineBanner } from '../components/OfflineBanner';
+import { useAuth } from '../context/AuthContext';
 
 export interface StudentAttendanceScreenProps {
   initialSession?: SessionItem;
@@ -73,6 +75,15 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
   onBack,
 }) => {
   const router = useRouter();
+  const { profile } = useAuth();
+
+  // ── Route guard: redirect ke login jika belum auth ──────────────
+  useEffect(() => {
+    if (profile === null) {
+      router.replace('/login' as any);
+    }
+  }, [profile, router]);
+
   const searchParams = useLocalSearchParams<{
     id?: string;
     courseTitle?: string;
@@ -186,6 +197,7 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
+      <OfflineBanner />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

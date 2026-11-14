@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function userData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function isAsisten() {
+      return signedIn() && userData().role == 'asisten';
+    }
+    function isPraktikan() {
+      return signedIn() && userData().role == 'praktikan';
+    }
+    function sessionData(sessionId) {
+      return get(/databases/$(database)/documents/sessions/$(sessionId)).data;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAsisten());
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.role in ['praktikan', 'asisten'];
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == resource.data.role;
+      allow delete: if false;
+    }
+
+    match /classes/{classId} {
+      allow read: if isAsisten()
+        || (signedIn() && request.auth.uid in resource.data.participantIds);
+      allow create, update, delete: if isAsisten();
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if isAsisten()
+        || (signedIn() && request.auth.uid in resource.data.participantIds);
+      allow create, update, delete: if isAsisten();
+    }
+
+    match /attendance/{attendanceId} {
+      allow read: if isAsisten()
+        || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isPraktikan()
+        && request.resource.data.uid == request.auth.uid
+        && attendanceId == request.resource.data.sessionId + '_' + request.auth.uid
+        && sessionData(request.resource.data.sessionId).status == 'BERJALAN'
+        && request.auth.uid in sessionData(request.resource.data.sessionId).participantIds;
+      allow update, delete: if false;
+    }
+
+    match /leaveRequests/{requestId} {
+      allow read: if isAsisten()
+        || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isPraktikan()
+        && request.resource.data.uid == request.auth.uid
+        && requestId == request.resource.data.sessionId + '_' + request.auth.uid
+        && request.resource.data.status == 'MENUNGGU'
+        && request.auth.uid in sessionData(request.resource.data.sessionId).participantIds;
+      allow update: if isAsisten()
+        && resource.data.status == 'MENUNGGU'
+        && request.resource.data.status in ['DITERIMA', 'DITOLAK']
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'decidedBy', 'decidedAt', 'assistantNote']);
+      allow delete: if false;
+    }
+  }
+}

@@ -1,6 +1,8 @@
 import React from 'react';
 import {
+  Alert,
   FlatList,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -25,10 +27,31 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
   onSelectSession,
 }) => {
   const router = useRouter();
-  const { profile, switchRole } = useAuth();
+  const { profile, switchRole, logout } = useAuth();
   const { sessions, loading, error, refresh } = useSessions();
 
   const isAsisten = profile.role === 'asisten';
+
+  const handleLogoutPress = () => {
+    Alert.alert(
+      'Konfirmasi Keluar',
+      'Apakah Anda yakin ingin keluar dari akun Anda?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Keluar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch (err) {
+              console.error('Logout error:', err);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleSelectSession = (session: SessionItem, role: RoleType) => {
     if (onSelectSession) {
@@ -68,8 +91,21 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
       {/* Header Aplikasi */}
       <View style={styles.headerArea}>
-        <Text style={styles.appTitle}>Lab Attendance</Text>
-        <Text style={styles.appSubtitle}>Sistem Presensi Praktikum Laboratorium</Text>
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerTextGroup}>
+            <Text style={styles.appTitle}>Lab Attendance</Text>
+            <Text style={styles.appSubtitle}>
+              {profile.name} • {isAsisten ? 'Asisten Lab' : 'Praktikan'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogoutPress}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.logoutButtonText}>Keluar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* User Header menggantikan RoleSwitcher */}
@@ -204,21 +240,44 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: Platform.OS === 'android' ? 8 : 4,
   },
   headerArea: {
-    marginBottom: 12,
+    marginBottom: 14,
+    paddingTop: Platform.OS === 'android' ? 6 : 2,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTextGroup: {
+    flex: 1,
+    marginRight: 12,
   },
   appTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#1E3A8A',
     letterSpacing: -0.5,
   },
   appSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#6B7280',
     marginTop: 2,
+  },
+  logoutButton: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  logoutButtonText: {
+    color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '700',
   },
   assistantQuickNav: {
     flexDirection: 'row',

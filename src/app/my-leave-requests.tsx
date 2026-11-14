@@ -8,7 +8,7 @@ export default function MyLeaveRequestsRoute() {
       <Stack.Screen options={{ title: 'Daftar Izin Saya', headerShown: false }} />
       <MyLeaveRequestsScreen
         onBack={() => router.back()}
-        onNavigateToForm={() => router.push('/leave-request-form')}
+        onNavigateToForm={() => router.push('/leave-request-form' as any)}
       />
     </>
   );

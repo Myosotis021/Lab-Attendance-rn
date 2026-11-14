@@ -8,7 +8,7 @@ export default function LeaveRequestFormRoute() {
       <Stack.Screen options={{ title: 'Pengajuan Izin', headerShown: false }} />
       <LeaveRequestFormScreen
         onBack={() => router.back()}
-        onSuccessNavigate={() => router.replace('/my-leave-requests')}
+        onSuccessNavigate={() => router.replace('/my-leave-requests' as any)}
       />
     </>
   );

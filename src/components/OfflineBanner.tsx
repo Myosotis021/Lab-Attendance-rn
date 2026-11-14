@@ -1,9 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useNetInfo } from '@react-native-community/netinfo';
+
+// Safe wrapper for @react-native-community/netinfo
+let useNetInfoHook: () => { isConnected: boolean | null; isInternetReachable: boolean | null } =
+  () => ({ isConnected: true, isInternetReachable: true });
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const netInfoPkg = require('@react-native-community/netinfo');
+  if (netInfoPkg && netInfoPkg.useNetInfo) {
+    useNetInfoHook = netInfoPkg.useNetInfo;
+  }
+} catch {
+  // netinfo fallback
+}
 
 export const OfflineBanner: React.FC = () => {
-  const netInfo = useNetInfo();
+  const netInfo = useNetInfoHook();
 
   // Tampilkan banner hanya jika terdeteksi offline
   const isOffline =

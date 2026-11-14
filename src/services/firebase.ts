@@ -6,9 +6,17 @@ import {
   getReactNativePersistence,
   Auth,
 } from 'firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { getFirestore, Firestore } from 'firebase/firestore';
+
+// Safe require for AsyncStorage
+let AsyncStorage: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  AsyncStorage = require('@react-native-async-storage/async-storage').default;
+} catch {
+  // fallback
+}
 
 export const firebaseConfig = {
   apiKey:

@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { AttendanceRecord, AttendanceStatus } from '../types';
 import { formatAttendanceTime } from '../services/attendanceService';
+import { theme } from '../theme';
 
 interface StudentHistoryCardProps {
   attendance: AttendanceRecord;
@@ -14,30 +16,30 @@ const getStatusBadgeStyle = (status: AttendanceStatus) => {
   switch (status) {
     case 'Hadir':
       return {
-        bg: '#DCFCE7',
-        text: '#15803D',
-        border: '#86EFAC',
+        bg: theme.colors.status.hadir.bg,
+        text: theme.colors.status.hadir.text,
+        border: theme.colors.status.hadir.border,
         label: 'HADIR',
       };
     case 'Izin':
       return {
-        bg: '#FEF3C7',
-        text: '#B45309',
-        border: '#FCD34D',
+        bg: theme.colors.status.izin.bg,
+        text: theme.colors.status.izin.text,
+        border: theme.colors.status.izin.border,
         label: 'IZIN',
       };
     case 'Sakit':
       return {
-        bg: '#DBEAFE',
-        text: '#1D4ED8',
-        border: '#93C5FD',
+        bg: theme.colors.status.sakit.bg,
+        text: theme.colors.status.sakit.text,
+        border: theme.colors.status.sakit.border,
         label: 'SAKIT',
       };
     default:
       return {
-        bg: '#F3F4F6',
-        text: '#4B5563',
-        border: '#E5E7EB',
+        bg: theme.colors.surfaceSubtle,
+        text: theme.colors.textSecondary,
+        border: theme.colors.border,
         label: status,
       };
   }
@@ -56,14 +58,18 @@ export const StudentHistoryCard: React.FC<StudentHistoryCardProps> = ({
       {/* Header Banner */}
       <View style={styles.headerBanner}>
         <View style={styles.badgeSuccess}>
-          <Text style={styles.badgeSuccessText}>✓ TERVERIFIKASI</Text>
+          <Feather name="check" size={13} color="#166534" />
+          <Text style={styles.badgeSuccessText}>TERVERIFIKASI</Text>
         </View>
-        <Text style={styles.lockBadgeText}>🔒 Terkunci (Anti-Double Submit)</Text>
+        <View style={styles.lockedRow}>
+          <Feather name="lock" size={12} color={theme.colors.textMuted} />
+          <Text style={styles.lockBadgeText}>Terkunci (Anti-Double Submit)</Text>
+        </View>
       </View>
 
       <Text style={styles.cardTitle}>Bukti Kehadiran Praktikan</Text>
 
-      {/* Main Status Sentence according to SRS: "Anda telah berhasil presensi pada [Jam:Menit:Detik WIB] - Status: [Hadir]" */}
+      {/* Main Status Sentence */}
       <View style={styles.statusCallout}>
         <Text style={styles.calloutText}>
           Anda telah berhasil presensi pada{' '}
@@ -92,81 +98,60 @@ export const StudentHistoryCard: React.FC<StudentHistoryCardProps> = ({
         ) : null}
 
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Nama Mahasiswa</Text>
+          <Text style={styles.detailLabel}>Mahasiswa</Text>
           <Text style={styles.detailValue}>{attendance.studentName}</Text>
         </View>
-
         <View style={styles.divider} />
 
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>NIM</Text>
-          <Text style={styles.detailValueMonospace}>{attendance.studentNim}</Text>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Waktu Masuk</Text>
-          <Text style={styles.detailValueHighlight}>{attendance.timestamp}</Text>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Status</Text>
-          <View
-            style={[
-              styles.statusPill,
-              {
-                backgroundColor: badgeStyle.bg,
-                borderColor: badgeStyle.border,
-              },
-            ]}
-          >
-            <Text style={[styles.statusPillText, { color: badgeStyle.text }]}>
-              {badgeStyle.label}
-            </Text>
-          </View>
-        </View>
+        {attendance.studentNim ? (
+          <>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>NIM</Text>
+              <Text style={styles.detailValue}>{attendance.studentNim}</Text>
+            </View>
+            <View style={styles.divider} />
+          </>
+        ) : null}
 
         {attendance.notes ? (
           <>
-            <View style={styles.divider} />
-            <View style={styles.notesRow}>
-              <Text style={styles.detailLabel}>Catatan / Nomor Meja</Text>
-              <Text style={styles.notesContent}>{attendance.notes}</Text>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Nomor Meja Lab</Text>
+              <Text style={styles.detailValue}>{attendance.notes}</Text>
             </View>
+            <View style={styles.divider} />
           </>
         ) : null}
+
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>ID Kehadiran</Text>
+          <Text style={styles.detailValueMono} numberOfLines={1}>
+            {attendance.id}
+          </Text>
+        </View>
       </View>
 
-      {/* Info notice about anti double submission */}
-      <View style={styles.noticeBox}>
-        <Text style={styles.noticeText}>
-          ℹ️ Form pengisian presensi telah dikunci otomatis. Mahasiswa tidak dapat
-          melakukan pengisian ganda pada sesi yang sama.
-        </Text>
-      </View>
-
-      {/* Action buttons (Feedback modal trigger & demo helper) */}
-      <View style={styles.actionRow}>
+      {/* Action Buttons */}
+      <View style={styles.buttonContainer}>
         {onViewFeedback ? (
           <TouchableOpacity
-            style={styles.btnViewFeedback}
+            style={styles.feedbackButton}
             onPress={onViewFeedback}
             activeOpacity={0.8}
           >
-            <Text style={styles.btnViewFeedbackText}>Lihat Kartu Feedback</Text>
+            <Feather name="file-text" size={15} color="#FFFFFF" style={styles.btnIcon} />
+            <Text style={styles.feedbackButtonText}>Lihat Bukti Presensi</Text>
           </TouchableOpacity>
         ) : null}
 
         {onResetForDemo ? (
           <TouchableOpacity
-            style={styles.btnResetDemo}
+            style={styles.resetButton}
             onPress={onResetForDemo}
             activeOpacity={0.8}
           >
-            <Text style={styles.btnResetDemoText}>🔄 Reset Presensi (Demo)</Text>
+            <Feather name="refresh-cw" size={14} color={theme.colors.textSecondary} style={styles.btnIcon} />
+            <Text style={styles.resetButtonText}>Reset Presensi (Demo)</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -176,17 +161,10 @@ export const StudentHistoryCard: React.FC<StudentHistoryCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xl,
+    padding: 20,
+    ...theme.shadows.card,
   },
   headerBanner: {
     flexDirection: 'row',
@@ -195,54 +173,60 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   badgeSuccess: {
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.status.hadir.bg,
+    borderColor: theme.colors.status.hadir.border,
     borderWidth: 1,
-    borderColor: '#86EFAC',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: theme.borderRadius.full,
   },
   badgeSuccessText: {
-    fontSize: 11,
+    color: theme.colors.status.hadir.text,
+    fontSize: 10,
     fontWeight: '800',
-    color: '#15803D',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
+  },
+  lockedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   lockBadgeText: {
+    color: theme.colors.textMuted,
     fontSize: 11,
-    color: '#64748B',
     fontWeight: '600',
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
     marginBottom: 10,
   },
   statusCallout: {
-    backgroundColor: '#F0FDF4',
-    borderLeftWidth: 4,
-    borderLeftColor: '#16A34A',
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderRadius: theme.borderRadius.md,
     padding: 12,
-    borderRadius: 8,
     marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#166534',
   },
   calloutText: {
     fontSize: 13,
-    color: '#166534',
+    color: theme.colors.textPrimary,
     lineHeight: 19,
   },
   calloutBold: {
     fontWeight: '700',
   },
   detailsContainer: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderRadius: theme.borderRadius.md,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 14,
+    paddingVertical: 8,
+    marginBottom: 16,
   },
   detailRow: {
     flexDirection: 'row',
@@ -250,102 +234,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
   },
-  notesRow: {
-    paddingVertical: 8,
-  },
   detailLabel: {
-    fontSize: 13,
-    color: '#64748B',
+    fontSize: 12,
+    color: theme.colors.textSecondary,
     fontWeight: '500',
   },
   detailValue: {
-    fontSize: 13,
-    color: '#1E293B',
-    fontWeight: '600',
-  },
-  detailValueMonospace: {
-    fontSize: 13,
-    color: '#0F172A',
+    fontSize: 12,
     fontWeight: '700',
-    fontFamily: 'monospace',
+    color: theme.colors.textPrimary,
+    maxWidth: '60%',
+    textAlign: 'right',
   },
-  detailValueHighlight: {
-    fontSize: 13,
-    color: '#0369A1',
-    fontWeight: '700',
-  },
-  statusPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  statusPillText: {
+  detailValueMono: {
     fontSize: 11,
-    fontWeight: '700',
-  },
-  notesContent: {
-    fontSize: 13,
-    color: '#334155',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 6,
-    padding: 8,
-    marginTop: 6,
-    fontStyle: 'italic',
+    color: theme.colors.textMuted,
+    fontFamily: 'monospace',
+    maxWidth: '55%',
   },
   divider: {
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.colors.borderLight,
   },
-  noticeBox: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    marginBottom: 14,
+  buttonContainer: {
+    gap: 8,
   },
-  noticeText: {
-    fontSize: 12,
-    color: '#1E40AF',
-    lineHeight: 17,
-  },
-  actionRow: {
+  feedbackButton: {
+    backgroundColor: theme.colors.textPrimary,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 12,
     flexDirection: 'row',
-    gap: 10,
-    flexWrap: 'wrap',
-  },
-  btnViewFeedback: {
-    flex: 1,
-    minWidth: 140,
-    backgroundColor: '#0284C7',
-    paddingVertical: 10,
-    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnViewFeedbackText: {
+  feedbackButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
     fontWeight: '700',
+    fontSize: 13,
   },
-  btnResetDemo: {
-    flex: 1,
-    minWidth: 140,
-    backgroundColor: '#F3F4F6',
+  resetButton: {
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    paddingVertical: 10,
-    borderRadius: 8,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 11,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnResetDemoText: {
-    color: '#4B5563',
+  resetButtonText: {
+    color: theme.colors.textSecondary,
+    fontWeight: '700',
     fontSize: 13,
-    fontWeight: '600',
+  },
+  btnIcon: {
+    marginRight: 6,
   },
 });
 

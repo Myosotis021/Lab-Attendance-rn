@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ViewStyle,
 } from 'react-native';
+import { theme } from '../theme';
 
 export interface LoadingStateProps {
   message?: string;
@@ -17,12 +18,14 @@ export interface LoadingStateProps {
 export const LoadingState: React.FC<LoadingStateProps> = ({
   message = 'Memuat data...',
   style,
-  color = '#2563EB',
+  color = theme.colors.textPrimary,
   size = 'large',
 }) => {
   return (
     <View style={[styles.container, style]}>
-      <ActivityIndicator size={size} color={color} />
+      <View style={styles.spinnerWrapper}>
+        <ActivityIndicator size={size} color={color} />
+      </View>
       {message ? <Text style={styles.text}>{message}</Text> : null}
     </View>
   );
@@ -30,18 +33,25 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
     padding: 24,
-    minHeight: 200,
+    minHeight: 180,
+  },
+  spinnerWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.subtle,
+    marginBottom: 12,
   },
   text: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#4B5563',
-    fontWeight: '500',
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });

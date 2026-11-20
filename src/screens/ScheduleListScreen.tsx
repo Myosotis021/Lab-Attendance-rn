@@ -1,15 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  Alert,
-  FlatList,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { EmptyState } from '../components/EmptyState';
 import { SessionCard } from '../components/SessionCard';
 import { UserHeader } from '../components/UserHeader';
@@ -18,10 +18,13 @@ import { ErrorState } from '../components/ErrorState';
 import { SessionItem, RoleType } from '../types/models';
 import { useAuth } from '../hooks/useAuth';
 import { useSessions } from '../hooks/useSessions';
+import { theme } from '../theme';
 
 interface ScheduleListScreenProps {
   onSelectSession?: (session: SessionItem, role: RoleType) => void;
 }
+
+type TabFilter = 'SEMUA' | 'BERJALAN' | 'BELUM_DIBUKA' | 'SELESAI';
 
 export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
   onSelectSession,
@@ -29,29 +32,9 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
   const router = useRouter();
   const { profile, switchRole, logout } = useAuth();
   const { sessions, loading, error, refresh } = useSessions();
+  const [activeTab, setActiveTab] = useState<TabFilter>('SEMUA');
 
   const isAsisten = profile.role === 'asisten';
-
-  const handleLogoutPress = () => {
-    Alert.alert(
-      'Konfirmasi Keluar',
-      'Apakah Anda yakin ingin keluar dari akun Anda?',
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Keluar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-            } catch (err) {
-              console.error('Logout error:', err);
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const handleSelectSession = (session: SessionItem, role: RoleType) => {
     if (onSelectSession) {
@@ -87,344 +70,594 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
     }
   };
 
+  // Filtered sessions based on tab
+  const filteredSessions = sessions.filter((s) => {
+    if (activeTab === 'SEMUA') return true;
+    return s.status === activeTab;
+  });
+
+  // Next Session for Hero Card
+  const nextSession =
+    sessions.find((s) => s.status === 'BERJALAN') ||
+    sessions.find((s) => s.status === 'BELUM_DIBUKA') ||
+    sessions[0] ||
+    null;
+
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
-      {/* Header Aplikasi */}
-      <View style={styles.headerArea}>
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerTextGroup}>
-            <Text style={styles.appTitle}>Lab Attendance</Text>
-            <Text style={styles.appSubtitle}>
-              {profile.name} • {isAsisten ? 'Asisten Lab' : 'Praktikan'}
+    <LinearGradient
+      colors={theme.colors.backgroundGradient}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        {/* Top Header Card */}
+        <UserHeader
+          profile={profile}
+          onSwitchRole={(nextRole) => switchRole(nextRole)}
+          onLogout={logout}
+        />
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Section 1: Dashboard & Filter Pills */}
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>Dashboard</Text>
+            <TouchableOpacity onPress={refresh} activeOpacity={0.7}>
+              <Text style={styles.sectionLink}>REFRESH »</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Outlined Pill Tabs */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.pillTabsContainer}
+          >
+            <TouchableOpacity
+              style={[
+                styles.pillTab,
+                activeTab === 'SEMUA' && styles.pillTabActive,
+              ]}
+              onPress={() => setActiveTab('SEMUA')}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.pillTabText,
+                  activeTab === 'SEMUA' && styles.pillTabTextActive,
+                ]}
+              >
+                Semua Sesi
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.pillTab,
+                activeTab === 'BERJALAN' && styles.pillTabActive,
+              ]}
+              onPress={() => setActiveTab('BERJALAN')}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.pillTabText,
+                  activeTab === 'BERJALAN' && styles.pillTabTextActive,
+                ]}
+              >
+                Berjalan
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.pillTab,
+                activeTab === 'BELUM_DIBUKA' && styles.pillTabActive,
+              ]}
+              onPress={() => setActiveTab('BELUM_DIBUKA')}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.pillTabText,
+                  activeTab === 'BELUM_DIBUKA' && styles.pillTabTextActive,
+                ]}
+              >
+                Belum Dibuka
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.pillTab,
+                activeTab === 'SELESAI' && styles.pillTabActive,
+              ]}
+              onPress={() => setActiveTab('SELESAI')}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.pillTabText,
+                  activeTab === 'SELESAI' && styles.pillTabTextActive,
+                ]}
+              >
+                Selesai
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+
+          {/* Hero Card: Sesi Berikutnya */}
+          <View style={styles.heroCard}>
+            {/* Decorative pastel circles/blobs in background */}
+            <View style={styles.decorativeBlobContainer} pointerEvents="none">
+              <View style={styles.decorativeBlob1} />
+              <View style={styles.decorativeBlob2} />
+              <View style={styles.decorativeBlob3} />
+            </View>
+
+            <View style={styles.heroContent}>
+              <Text style={styles.heroSmallLabel}>Sesi berikutnya</Text>
+              {nextSession ? (
+                <>
+                  <Text style={styles.heroTimeTitle}>
+                    {nextSession.timeSlot}
+                  </Text>
+                  <Text style={styles.heroCourseTitle} numberOfLines={2}>
+                    {nextSession.courseTitle}
+                  </Text>
+                  <Text style={styles.heroModuleSubtitle} numberOfLines={1}>
+                    {nextSession.moduleName} • {nextSession.roomName}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.heroTimeTitle}>Tidak Ada Sesi</Text>
+                  <Text style={styles.heroCourseTitle}>
+                    Belum ada jadwal praktikum aktif
+                  </Text>
+                  <Text style={styles.heroModuleSubtitle}>
+                    Semua sesi praktikum telah berakhir
+                  </Text>
+                </>
+              )}
+
+              {/* Orange Gradient Circular Arrow Button */}
+              {nextSession && (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => handleSelectSession(nextSession, profile.role)}
+                  style={styles.heroActionButtonWrapper}
+                >
+                  <LinearGradient
+                    colors={theme.colors.heroButton}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.heroActionButton}
+                  >
+                    <Feather name="arrow-right" size={20} color="#FFFFFF" />
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* Section 2: Essentials / Menu Utama */}
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>Essentials</Text>
+            <Text style={styles.sectionLink}>MENU UTAMA »</Text>
+          </View>
+
+          {/* 2x2 Grid Tiles */}
+          <View style={styles.gridContainer}>
+            {isAsisten ? (
+              // Asisten Menu Tiles
+              <>
+                {/* Tile 1: Navy - Kelola Kelas */}
+                <TouchableOpacity
+                  style={[styles.tileItem, { backgroundColor: theme.colors.tiles.navy.bg }]}
+                  activeOpacity={0.85}
+                  onPress={() => router.push('/class-management' as any)}
+                >
+                  <View style={styles.tileHeader}>
+                    <Feather name="book" size={20} color={theme.colors.tiles.navy.icon} />
+                    <View style={[styles.tileBadge, { backgroundColor: theme.colors.tiles.navy.badgeBg }]}>
+                      <Feather name="arrow-up-right" size={13} color={theme.colors.tiles.navy.badgeText} />
+                    </View>
+                  </View>
+                  <Text style={[styles.tileTitle, { color: theme.colors.tiles.navy.text }]}>
+                    Kelola Kelas
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Tile 2: Lavender - Kelola Sesi */}
+                <TouchableOpacity
+                  style={styles.tileItem}
+                  activeOpacity={0.85}
+                  onPress={() => router.push('/session-management' as any)}
+                >
+                  <LinearGradient
+                    colors={theme.colors.tiles.lavender.gradient}
+                    style={styles.tileGradientFill}
+                  >
+                    <View style={styles.tileHeader}>
+                      <Feather name="calendar" size={20} color={theme.colors.tiles.lavender.icon} />
+                      <View style={[styles.tileBadge, { backgroundColor: theme.colors.tiles.lavender.badgeBg }]}>
+                        <Feather name="arrow-up-right" size={13} color={theme.colors.tiles.lavender.badgeText} />
+                      </View>
+                    </View>
+                    <Text style={[styles.tileTitle, { color: theme.colors.tiles.lavender.text }]}>
+                      Kelola Sesi
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                {/* Tile 3: Mint - Review Izin (AI Powered) */}
+                <TouchableOpacity
+                  style={styles.tileItem}
+                  activeOpacity={0.85}
+                  onPress={() => router.push('/assistant-leave-review' as any)}
+                >
+                  <LinearGradient
+                    colors={theme.colors.tiles.mint.gradient}
+                    style={styles.tileGradientFill}
+                  >
+                    <View style={styles.tileHeader}>
+                      <Feather name="check-circle" size={20} color={theme.colors.tiles.mint.icon} />
+                      <View style={[styles.tileBadge, { backgroundColor: theme.colors.tiles.mint.badgeBg }]}>
+                        <Feather name="arrow-up-right" size={13} color={theme.colors.tiles.mint.badgeText} />
+                      </View>
+                    </View>
+                    <Text style={[styles.tileTitle, { color: theme.colors.tiles.mint.text }]}>
+                      Review Izin
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                {/* Tile 4: Peach - Rekap & Presensi */}
+                <TouchableOpacity
+                  style={styles.tileItem}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (nextSession) {
+                      handleSelectSession(nextSession, profile.role);
+                    } else {
+                      router.push('/session-management' as any);
+                    }
+                  }}
+                >
+                  <LinearGradient
+                    colors={theme.colors.tiles.peach.gradient}
+                    style={styles.tileGradientFill}
+                  >
+                    <View style={styles.tileHeader}>
+                      <Feather name="clipboard" size={20} color={theme.colors.tiles.peach.icon} />
+                      <View style={[styles.tileBadge, { backgroundColor: theme.colors.tiles.peach.badgeBg }]}>
+                        <Feather name="arrow-up-right" size={13} color={theme.colors.tiles.peach.badgeText} />
+                      </View>
+                    </View>
+                    <Text style={[styles.tileTitle, { color: theme.colors.tiles.peach.text }]}>
+                      Rekap Kehadiran
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </>
+            ) : (
+              // Praktikan Menu Tiles
+              <>
+                {/* Tile 1: Navy - Presensi Lab */}
+                <TouchableOpacity
+                  style={[styles.tileItem, { backgroundColor: theme.colors.tiles.navy.bg }]}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (nextSession) {
+                      handleSelectSession(nextSession, profile.role);
+                    }
+                  }}
+                >
+                  <View style={styles.tileHeader}>
+                    <Feather name="check-square" size={20} color={theme.colors.tiles.navy.icon} />
+                    <View style={[styles.tileBadge, { backgroundColor: theme.colors.tiles.navy.badgeBg }]}>
+                      <Feather name="arrow-up-right" size={13} color={theme.colors.tiles.navy.badgeText} />
+                    </View>
+                  </View>
+                  <Text style={[styles.tileTitle, { color: theme.colors.tiles.navy.text }]}>
+                    Presensi Lab
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Tile 2: Lavender - Status Izin */}
+                <TouchableOpacity
+                  style={styles.tileItem}
+                  activeOpacity={0.85}
+                  onPress={() => router.push('/my-leave-requests' as any)}
+                >
+                  <LinearGradient
+                    colors={theme.colors.tiles.lavender.gradient}
+                    style={styles.tileGradientFill}
+                  >
+                    <View style={styles.tileHeader}>
+                      <Feather name="file-text" size={20} color={theme.colors.tiles.lavender.icon} />
+                      <View style={[styles.tileBadge, { backgroundColor: theme.colors.tiles.lavender.badgeBg }]}>
+                        <Feather name="arrow-up-right" size={13} color={theme.colors.tiles.lavender.badgeText} />
+                      </View>
+                    </View>
+                    <Text style={[styles.tileTitle, { color: theme.colors.tiles.lavender.text }]}>
+                      Status Izin
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                {/* Tile 3: Mint - Ajukan Izin (AI Powered) */}
+                <TouchableOpacity
+                  style={styles.tileItem}
+                  activeOpacity={0.85}
+                  onPress={() => router.push('/leave-request-form' as any)}
+                >
+                  <LinearGradient
+                    colors={theme.colors.tiles.mint.gradient}
+                    style={styles.tileGradientFill}
+                  >
+                    <View style={styles.tileHeader}>
+                      <Feather name="send" size={20} color={theme.colors.tiles.mint.icon} />
+                      <View style={[styles.tileBadge, { backgroundColor: theme.colors.tiles.mint.badgeBg }]}>
+                        <Feather name="arrow-up-right" size={13} color={theme.colors.tiles.mint.badgeText} />
+                      </View>
+                    </View>
+                    <Text style={[styles.tileTitle, { color: theme.colors.tiles.mint.text }]}>
+                      Ajukan Izin
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                {/* Tile 4: Peach - Jadwal Praktikum */}
+                <TouchableOpacity
+                  style={styles.tileItem}
+                  activeOpacity={0.85}
+                  onPress={() => setActiveTab('SEMUA')}
+                >
+                  <LinearGradient
+                    colors={theme.colors.tiles.peach.gradient}
+                    style={styles.tileGradientFill}
+                  >
+                    <View style={styles.tileHeader}>
+                      <Feather name="clock" size={20} color={theme.colors.tiles.peach.icon} />
+                      <View style={[styles.tileBadge, { backgroundColor: theme.colors.tiles.peach.badgeBg }]}>
+                        <Feather name="arrow-up-right" size={13} color={theme.colors.tiles.peach.badgeText} />
+                      </View>
+                    </View>
+                    <Text style={[styles.tileTitle, { color: theme.colors.tiles.peach.text }]}>
+                      Jadwal Praktikum
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+
+          {/* Section 3: Today / Jadwal Praktikum */}
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>
+              {isAsisten ? 'Semua Jadwal Praktikum' : 'Jadwal Hari Ini'}
+            </Text>
+            <Text style={styles.sectionLink}>
+              {filteredSessions.length} SESI »
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogoutPress}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.logoutButtonText}>Keluar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
 
-      {/* User Header menggantikan RoleSwitcher */}
-      <UserHeader
-        profile={profile}
-        onSwitchRole={(nextRole) => switchRole(nextRole)}
-      />
-
-      {/* Quick Action Navigation untuk Asisten */}
-      {isAsisten && (
-        <View style={styles.assistantQuickNav}>
-          <TouchableOpacity
-            style={styles.navButtonPrimary}
-            onPress={() => router.push('/class-management' as any)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.navButtonIcon}>📚</Text>
-            <Text style={styles.navButtonTextPrimary}>Kelola Kelas</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navButtonSecondary}
-            onPress={() => router.push('/session-management' as any)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.navButtonIcon}>🗓️</Text>
-            <Text style={styles.navButtonTextSecondary}>Kelola Sesi</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Fitur Izin & AI (Developer 3 / AI Leave) */}
-      <View style={styles.featureBox}>
-        <View style={styles.featureBoxHeader}>
-          <Text style={styles.featureBoxTitle}>
-            {isAsisten ? '📋 Pengelolaan Izin Praktikan' : '✉️ Layanan Izin Praktikan'}
-          </Text>
-          <View style={styles.aiTag}>
-            <Text style={styles.aiTagText}>AI Powered</Text>
-          </View>
-        </View>
-
-        {isAsisten ? (
-          <TouchableOpacity
-            style={styles.featureActionPrimary}
-            onPress={() => router.push('/assistant-leave-review' as any)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.featureActionPrimaryText}>Review Pengajuan Izin</Text>
-            <Text style={styles.featureActionSubtext}>Periksa dan putuskan izin praktikan</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.featureRowButtons}>
-            <TouchableOpacity
-              style={[styles.featureActionSecondary, styles.flexOne]}
-              onPress={() => router.push('/leave-request-form' as any)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.featureActionSecondaryText}>+ Ajukan Izin</Text>
-              <Text style={styles.featureActionSmallSubtext}>Sesi Belum Dibuka</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.featureActionSecondary, styles.flexOne]}
-              onPress={() => router.push('/my-leave-requests' as any)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.featureActionSecondaryText}>Status Izin Saya</Text>
-              <Text style={styles.featureActionSmallSubtext}>Pantau Real-time</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      {/* Judul Bagian Jadwal */}
-      <View style={styles.sectionHeader}>
-        <View>
-          <Text style={styles.sectionTitle}>
-            {isAsisten ? 'Semua Jadwal Praktikum' : 'Jadwal Praktikum Anda'}
-          </Text>
-          <Text style={styles.sectionSubtitle}>
-            {loading
-              ? 'Memuat data dari Firestore...'
-              : sessions.length > 0
-              ? `${sessions.length} sesi tersedia`
-              : 'Tidak ada sesi'}
-          </Text>
-        </View>
-      </View>
-
-      {/* Daftar Sesi, Loading, Error, atau Empty State */}
-      {loading ? (
-        <LoadingState message="Memuat jadwal praktikum real-time..." />
-      ) : error ? (
-        <ErrorState
-          message={error}
-          onRetry={refresh}
-          retryText="Coba Muat Ulang"
-        />
-      ) : sessions.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <EmptyState
-            message="Tidak Ada Jadwal Praktikum"
-            description={
-              isAsisten
-                ? 'Belum ada sesi praktikum yang dibuat. Silakan tambahkan melalui menu Kelola Sesi.'
-                : 'Anda belum terdaftar dalam sesi praktikum aktif manapun.'
-            }
-          />
-        </View>
-      ) : (
-        <FlatList
-          data={sessions}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <SessionCard
-              session={item}
-              currentRole={profile.role}
-              onSelectSession={handleSelectSession}
+          {/* Session Cards List */}
+          {loading ? (
+            <LoadingState message="Memuat jadwal praktikum real-time..." />
+          ) : error ? (
+            <ErrorState
+              message={error}
+              onRetry={refresh}
+              retryText="Coba Muat Ulang"
             />
+          ) : filteredSessions.length === 0 ? (
+            <EmptyState
+              message="Tidak Ada Jadwal Praktikum"
+              description={
+                isAsisten
+                  ? 'Belum ada sesi praktikum yang cocok dengan filter. Silakan tambahkan melalui menu Kelola Sesi.'
+                  : 'Belum ada sesi praktikum yang sesuai dengan filter saat ini.'
+              }
+            />
+          ) : (
+            filteredSessions.map((item) => (
+              <SessionCard
+                key={item.id}
+                session={item}
+                currentRole={profile.role}
+                onSelectSession={handleSelectSession}
+              />
+            ))
           )}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  gradientContainer: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+  },
+  safeArea: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 8 : 4,
+    paddingBottom: 32,
   },
-  headerArea: {
-    marginBottom: 14,
-    paddingTop: Platform.OS === 'android' ? 6 : 2,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerTextGroup: {
-    flex: 1,
-    marginRight: 12,
-  },
-  appTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1E3A8A',
-    letterSpacing: -0.5,
-  },
-  appSubtitle: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  logoutButton: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  logoutButtonText: {
-    color: '#DC2626',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  assistantQuickNav: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
-  navButtonPrimary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2563EB',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    elevation: 2,
-  },
-  navButtonSecondary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#2563EB',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    elevation: 1,
-  },
-  navButtonIcon: {
-    fontSize: 16,
-    marginRight: 6,
-  },
-  navButtonTextPrimary: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  navButtonTextSecondary: {
-    color: '#2563EB',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  featureBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  featureBoxHeader: {
+  sectionTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
-  },
-  featureBoxTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  aiTag: {
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#C7D2FE',
-  },
-  aiTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#4F46E5',
-  },
-  featureActionPrimary: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  featureActionPrimaryText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  featureActionSubtext: {
-    color: '#BFDBFE',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  featureRowButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  featureActionSecondary: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  featureActionSecondaryText: {
-    color: '#1E293B',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  featureActionSmallSubtext: {
-    color: '#64748B',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  flexOne: {
-    flex: 1,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    marginTop: 6,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.3,
   },
-  sectionSubtitle: {
+  sectionLink: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  pillTabsContainer: {
+    flexDirection: 'row',
+    paddingBottom: 14,
+    gap: 8,
+  },
+  pillTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: 'transparent',
+  },
+  pillTabActive: {
+    borderColor: theme.colors.textPrimary,
+    backgroundColor: 'rgba(20, 20, 43, 0.04)',
+  },
+  pillTabText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+  },
+  pillTabTextActive: {
+    color: theme.colors.textPrimary,
+    fontWeight: '800',
+  },
+  // Hero Card
+  heroCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xxl,
+    padding: 20,
+    marginBottom: 18,
+    position: 'relative',
+    overflow: 'hidden',
+    ...theme.shadows.card,
+  },
+  decorativeBlobContainer: {
+    position: 'absolute',
+    right: -20,
+    top: -20,
+    bottom: -20,
+    width: 170,
+  },
+  decorativeBlob1: {
+    position: 'absolute',
+    right: 0,
+    top: 10,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: 'rgba(201, 184, 245, 0.28)',
+  },
+  decorativeBlob2: {
+    position: 'absolute',
+    right: 35,
+    bottom: 10,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(181, 232, 213, 0.35)',
+  },
+  decorativeBlob3: {
+    position: 'absolute',
+    right: 70,
+    top: 30,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 209, 201, 0.35)',
+  },
+  heroContent: {
+    zIndex: 2,
+    maxWidth: '75%',
+  },
+  heroSmallLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: theme.colors.textMuted,
+    fontWeight: '600',
+    marginBottom: 4,
+    textTransform: 'capitalize',
+  },
+  heroTimeTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.5,
+    marginBottom: 6,
+  },
+  heroCourseTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    lineHeight: 19,
+  },
+  heroModuleSubtitle: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
     marginTop: 2,
+    marginBottom: 16,
   },
-  listContent: {
-    paddingBottom: 24,
+  heroActionButtonWrapper: {
+    alignSelf: 'flex-start',
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  heroActionButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.subtle,
+  },
+  // 2x2 Grid Tiles
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 18,
+  },
+  tileItem: {
+    width: '48%',
+    height: 116,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.card,
+  },
+  tileGradientFill: {
+    flex: 1,
+    padding: 14,
+    justifyContent: 'space-between',
+  },
+  tileHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+    paddingBottom: 0,
+  },
+  tileBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tileTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    paddingHorizontal: 14,
+    paddingBottom: 14,
   },
 });
 

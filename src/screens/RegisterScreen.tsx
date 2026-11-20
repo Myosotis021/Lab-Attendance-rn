@@ -9,10 +9,12 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { Role } from '../types/models';
 import {
@@ -24,6 +26,7 @@ import {
 } from '../utils/validators';
 import { getErrorMessage } from '../utils/errorMessages';
 import { OfflineBanner } from '../components/OfflineBanner';
+import { theme } from '../theme';
 
 interface RegisterScreenProps {
   onNavigateToLogin?: () => void;
@@ -99,283 +102,287 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
-      <OfflineBanner />
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+    <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <StatusBar style="dark" />
+        <OfflineBanner />
+        <KeyboardAvoidingView
+          style={styles.flexOne}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.appName}>Daftar Akun Baru</Text>
-            <Text style={styles.subtitle}>
-              Lengkapi data untuk mengakses sistem presensi laboratorium
-            </Text>
-          </View>
-
-          {/* Kartu Form Register */}
-          <View style={styles.card}>
-            {/* General Error Banner */}
-            {generalError ? (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorBannerIcon}>⚠️</Text>
-                <Text style={styles.errorBannerText}>{generalError}</Text>
-              </View>
-            ) : null}
-
-            {/* Pilihan Peran (Pills) */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Pilih Peran Pengguna *</Text>
-              <View style={styles.rolePillsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.rolePill,
-                    role === 'praktikan' && styles.rolePillPraktikanActive,
-                  ]}
-                  onPress={() => {
-                    setRole('praktikan');
-                    setNimError(null);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.rolePillText,
-                      role === 'praktikan' && styles.rolePillTextActive,
-                    ]}
-                  >
-                    🎓 Praktikan
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.rolePill,
-                    role === 'asisten' && styles.rolePillAsistenActive,
-                  ]}
-                  onPress={() => {
-                    setRole('asisten');
-                    setNimError(null);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.rolePillText,
-                      role === 'asisten' && styles.rolePillTextActive,
-                    ]}
-                  >
-                    👨‍🏫 Asisten Lab
-                  </Text>
-                </TouchableOpacity>
-              </View>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.appName}>Daftar Akun Baru</Text>
+              <Text style={styles.subtitle}>
+                Lengkapi data untuk mengakses sistem presensi laboratorium
+              </Text>
             </View>
 
-            {/* Field Nama Lengkap */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Nama Lengkap *</Text>
-              <TextInput
-                style={[styles.input, nameError ? styles.inputError : null]}
-                placeholder="Contoh: Ahmad Fauzi"
-                placeholderTextColor="#9CA3AF"
-                value={name}
-                onChangeText={(text) => {
-                  setName(text);
-                  if (nameError) setNameError(null);
-                }}
-                editable={!isSubmitting}
-              />
-              {nameError ? (
-                <Text style={styles.fieldErrorText}>{nameError}</Text>
+            {/* Kartu Form Register */}
+            <View style={styles.card}>
+              {/* General Error Banner */}
+              {generalError ? (
+                <View style={styles.errorBanner}>
+                  <Feather name="alert-triangle" size={16} color="#DC2626" style={styles.errorBannerIcon} />
+                  <Text style={styles.errorBannerText}>{generalError}</Text>
+                </View>
               ) : null}
-            </View>
 
-            {/* Field NIM (Hanya muncul jika peran Praktikan) */}
-            {role === 'praktikan' ? (
+              {/* Pilihan Peran (Pills) */}
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>NIM (Nomor Induk Mahasiswa) *</Text>
+                <Text style={styles.label}>Pilih Peran Pengguna *</Text>
+                <View style={styles.rolePillsRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.rolePill,
+                      role === 'praktikan' && styles.rolePillActive,
+                    ]}
+                    onPress={() => {
+                      setRole('praktikan');
+                      setNimError(null);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.rolePillText,
+                        role === 'praktikan' && styles.rolePillTextActive,
+                      ]}
+                    >
+                      Praktikan (Mahasiswa)
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.rolePill,
+                      role === 'asisten' && styles.rolePillActive,
+                    ]}
+                    onPress={() => {
+                      setRole('asisten');
+                      setNimError(null);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.rolePillText,
+                        role === 'asisten' && styles.rolePillTextActive,
+                      ]}
+                    >
+                      Asisten Lab
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Field Nama Lengkap */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Nama Lengkap *</Text>
                 <TextInput
-                  style={[styles.input, nimError ? styles.inputError : null]}
-                  placeholder="Contoh: 220101001 (8-20 digit)"
-                  placeholderTextColor="#9CA3AF"
-                  value={nim}
+                  style={[styles.input, nameError ? styles.inputError : null]}
+                  placeholder="Contoh: Budi Santoso"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={name}
                   onChangeText={(text) => {
-                    setNim(text);
-                    if (nimError) setNimError(null);
+                    setName(text);
+                    if (nameError) setNameError(null);
+                    if (generalError) setGeneralError(null);
                   }}
-                  keyboardType="numeric"
-                  maxLength={20}
+                  autoCapitalize="words"
                   editable={!isSubmitting}
                 />
-                {nimError ? (
-                  <Text style={styles.fieldErrorText}>{nimError}</Text>
+                {nameError ? (
+                  <Text style={styles.fieldErrorText}>{nameError}</Text>
                 ) : null}
               </View>
-            ) : null}
 
-            {/* Field Email */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email *</Text>
-              <TextInput
-                style={[styles.input, emailError ? styles.inputError : null]}
-                placeholder="nama@email.com"
-                placeholderTextColor="#9CA3AF"
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  if (emailError) setEmailError(null);
-                }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isSubmitting}
-              />
-              {emailError ? (
-                <Text style={styles.fieldErrorText}>{emailError}</Text>
-              ) : null}
-            </View>
-
-            {/* Field Password */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password *</Text>
-              <TextInput
-                style={[styles.input, passwordError ? styles.inputError : null]}
-                placeholder="Minimal 6 karakter"
-                placeholderTextColor="#9CA3AF"
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (passwordError) setPasswordError(null);
-                }}
-                secureTextEntry
-                editable={!isSubmitting}
-              />
-              {passwordError ? (
-                <Text style={styles.fieldErrorText}>{passwordError}</Text>
-              ) : null}
-            </View>
-
-            {/* Field Konfirmasi Password */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Konfirmasi Password *</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  confirmPasswordError ? styles.inputError : null,
-                ]}
-                placeholder="Ulangi password"
-                placeholderTextColor="#9CA3AF"
-                value={confirmPassword}
-                onChangeText={(text) => {
-                  setConfirmPassword(text);
-                  if (confirmPasswordError) setConfirmPasswordError(null);
-                }}
-                secureTextEntry
-                editable={!isSubmitting}
-              />
-              {confirmPasswordError ? (
-                <Text style={styles.fieldErrorText}>
-                  {confirmPasswordError}
-                </Text>
-              ) : null}
-            </View>
-
-            {/* Tombol Submit Registrasi */}
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                isSubmitting ? styles.submitButtonDisabled : null,
-              ]}
-              onPress={handleRegister}
-              disabled={isSubmitting}
-              activeOpacity={0.8}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={styles.submitButtonText}>Daftar Sekarang</Text>
+              {/* Field NIM (hanya untuk Praktikan) */}
+              {role === 'praktikan' && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Nomor Induk Mahasiswa (NIM) *</Text>
+                  <TextInput
+                    style={[styles.input, nimError ? styles.inputError : null]}
+                    placeholder="Contoh: 2101010001"
+                    placeholderTextColor={theme.colors.textMuted}
+                    value={nim}
+                    onChangeText={(text) => {
+                      setNim(text);
+                      if (nimError) setNimError(null);
+                      if (generalError) setGeneralError(null);
+                    }}
+                    keyboardType="number-pad"
+                    editable={!isSubmitting}
+                  />
+                  {nimError ? (
+                    <Text style={styles.fieldErrorText}>{nimError}</Text>
+                  ) : null}
+                </View>
               )}
-            </TouchableOpacity>
 
-            {/* Link ke Login */}
-            {onNavigateToLogin ? (
-              <View style={styles.loginPrompt}>
-                <Text style={styles.promptText}>Sudah memiliki akun? </Text>
+              {/* Field Email */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email *</Text>
+                <TextInput
+                  style={[styles.input, emailError ? styles.inputError : null]}
+                  placeholder="nama@email.com"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (emailError) setEmailError(null);
+                    if (generalError) setGeneralError(null);
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isSubmitting}
+                />
+                {emailError ? (
+                  <Text style={styles.fieldErrorText}>{emailError}</Text>
+                ) : null}
+              </View>
+
+              {/* Field Password */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Password *</Text>
+                <TextInput
+                  style={[styles.input, passwordError ? styles.inputError : null]}
+                  placeholder="Minimal 6 karakter"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (passwordError) setPasswordError(null);
+                    if (generalError) setGeneralError(null);
+                  }}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isSubmitting}
+                />
+                {passwordError ? (
+                  <Text style={styles.fieldErrorText}>{passwordError}</Text>
+                ) : null}
+              </View>
+
+              {/* Field Konfirmasi Password */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Konfirmasi Password *</Text>
+                <TextInput
+                  style={[styles.input, confirmPasswordError ? styles.inputError : null]}
+                  placeholder="Ulangi password di atas"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={confirmPassword}
+                  onChangeText={(text) => {
+                    setConfirmPassword(text);
+                    if (confirmPasswordError) setConfirmPasswordError(null);
+                    if (generalError) setGeneralError(null);
+                  }}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isSubmitting}
+                />
+                {confirmPasswordError ? (
+                  <Text style={styles.fieldErrorText}>{confirmPasswordError}</Text>
+                ) : null}
+              </View>
+
+              {/* Tombol Submit Register */}
+              <TouchableOpacity
+                style={[styles.submitButton, isSubmitting ? styles.submitButtonDisabled : null]}
+                onPress={handleRegister}
+                disabled={isSubmitting}
+                activeOpacity={0.85}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Daftar Akun Sekarang</Text>
+                )}
+              </TouchableOpacity>
+
+              {/* Link ke Login */}
+              <View style={styles.loginRow}>
+                <Text style={styles.loginPrompt}>Sudah punya akun? </Text>
                 <TouchableOpacity
-                  onPress={onNavigateToLogin}
+                  onPress={() => {
+                    if (onNavigateToLogin) {
+                      onNavigateToLogin();
+                    } else {
+                      router.push('/login' as any);
+                    }
+                  }}
                   disabled={isSubmitting}
                 >
-                  <Text style={styles.promptLink}>Masuk di sini</Text>
+                  <Text style={styles.loginLink}>Masuk di sini</Text>
                 </TouchableOpacity>
               </View>
-            ) : null}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  flexOne: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
-  container: {
+  safeArea: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    flexGrow: 1,
+    paddingHorizontal: 20,
     paddingVertical: 24,
+    justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
     marginBottom: 20,
   },
   appName: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 4,
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
+    marginTop: 4,
+    paddingHorizontal: 12,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xxl,
+    padding: 24,
+    ...theme.shadows.card,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#FEE2E2',
     borderWidth: 1,
     borderColor: '#FECACA',
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.md,
     padding: 12,
     marginBottom: 16,
   },
   errorBannerIcon: {
     marginRight: 8,
-    fontSize: 16,
   },
   errorBannerText: {
-    color: '#DC2626',
+    color: '#B91C1C',
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
@@ -384,99 +391,86 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#334155',
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
     marginBottom: 6,
   },
   rolePillsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   rolePill: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#F8FAFC',
+    paddingVertical: 10,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSubtle,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  rolePillPraktikanActive: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#16A34A',
-  },
-  rolePillAsistenActive: {
-    backgroundColor: '#EDE9FE',
-    borderColor: '#7C3AED',
+  rolePillActive: {
+    borderColor: theme.colors.textPrimary,
+    backgroundColor: 'rgba(20, 20, 43, 0.05)',
   },
   rolePillText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: theme.colors.textSecondary,
   },
   rolePillTextActive: {
-    color: '#0F172A',
-    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    fontWeight: '800',
   },
   input: {
+    backgroundColor: theme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: '#CED4DA',
-    borderRadius: 8,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
-    color: '#1E293B',
-    backgroundColor: '#FFFFFF',
-    minHeight: 48,
+    color: theme.colors.textPrimary,
   },
   inputError: {
     borderColor: '#EF4444',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#FFF5F5',
   },
   fieldErrorText: {
+    color: '#EF4444',
     fontSize: 12,
-    color: '#DC2626',
     marginTop: 4,
-    fontWeight: '500',
   },
   submitButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.colors.textPrimary,
+    borderRadius: theme.borderRadius.md,
     paddingVertical: 14,
-    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
-    minHeight: 48,
-    elevation: 2,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...theme.shadows.subtle,
   },
   submitButtonDisabled: {
-    backgroundColor: '#93C5FD',
+    opacity: 0.6,
   },
   submitButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
-  loginPrompt: {
+  loginRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
     marginTop: 18,
   },
-  promptText: {
+  loginPrompt: {
     fontSize: 13,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
   },
-  promptLink: {
+  loginLink: {
     fontSize: 13,
-    color: '#2563EB',
     fontWeight: '700',
+    color: theme.colors.primaryBlue,
   },
 });
 

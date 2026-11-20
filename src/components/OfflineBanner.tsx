@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { theme } from '../theme';
 
 // Safe wrapper for @react-native-community/netinfo
 let useNetInfoHook: () => { isConnected: boolean | null; isInternetReachable: boolean | null } =
@@ -18,7 +20,6 @@ try {
 export const OfflineBanner: React.FC = () => {
   const netInfo = useNetInfoHook();
 
-  // Tampilkan banner hanya jika terdeteksi offline
   const isOffline =
     netInfo.isConnected === false || netInfo.isInternetReachable === false;
 
@@ -28,10 +29,9 @@ export const OfflineBanner: React.FC = () => {
 
   return (
     <View style={styles.banner}>
-      <Text style={styles.bannerIcon}>⚠️</Text>
+      <Feather name="wifi-off" size={14} color="#FFFFFF" style={styles.bannerIcon} />
       <Text style={styles.bannerText}>
-        Mode Offline: Tidak ada koneksi internet. Beberapa fitur mungkin tidak
-        tersedia.
+        Mode Offline: Tidak ada koneksi internet. Beberapa fitur mungkin terbatas.
       </Text>
     </View>
   );
@@ -45,10 +45,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: theme.borderRadius.sm,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
     zIndex: 999,
   },
   bannerIcon: {
-    fontSize: 14,
     marginRight: 8,
   },
   bannerText: {

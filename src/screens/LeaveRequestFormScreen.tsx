@@ -9,17 +9,21 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import useAuth from '../hooks/useAuth';
 import { submitLeaveRequest, getExistingLeaveRequest } from '../services/leaveService';
 import { LeaveRequest } from '../types/models';
 import { getErrorMessage } from '../utils/errors';
-import UserHeader from '../components/UserHeader';
 import SentimentBadge from '../components/SentimentBadge';
 import LeaveStatusBadge from '../components/LeaveStatusBadge';
 import ErrorState from '../components/ErrorState';
 import { INITIAL_SCHEDULES } from '../data/schedules';
+import { theme } from '../theme';
 
 interface SessionOption {
   id: string;
@@ -228,295 +232,342 @@ export const LeaveRequestFormScreen: React.FC<LeaveRequestFormScreenProps> = ({
 
   if (profile?.role === 'asisten') {
     return (
-      <View style={styles.container}>
-        <ErrorState
-          title="Akses Ditolak"
-          message="Halaman pengajuan izin khusus untuk Mahasiswa Praktikan."
-          onRetry={onBack}
-          retryText="Kembali"
-        />
-      </View>
+      <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+        <SafeAreaView style={styles.safeArea}>
+          <ErrorState
+            title="Akses Ditolak"
+            message="Halaman pengajuan izin khusus untuk Mahasiswa Praktikan."
+            onRetry={onBack}
+            retryText="Kembali"
+          />
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Top Header */}
-      <View style={styles.headerRow}>
-        {onBack && (
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Kembali</Text>
-          </TouchableOpacity>
-        )}
-        <Text style={styles.pageTitle}>Pengajuan Izin Praktikan</Text>
-      </View>
+    <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <StatusBar style="dark" />
 
-      {/* User Info Header */}
-      <UserHeader profile={profile} />
-
-      {/* Section 1: Choose Session */}
-      <Text style={styles.sectionLabel}>Pilih Sesi Praktikum (BELUM DIBUKA)</Text>
-      {loadingSessions ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="small" color="#2563EB" />
-          <Text style={styles.loadingText}>Memuat sesi praktikum...</Text>
-        </View>
-      ) : sessions.length === 0 ? (
-        <View style={styles.emptySessionBox}>
-          <Text style={styles.emptySessionText}>
-            Tidak ada sesi praktikum yang berstatus BELUM DIBUKA saat ini.
-          </Text>
-          <Text style={styles.emptySessionSubtext}>
-            Pengajuan izin hanya dapat dilakukan sebelum sesi praktikum dibuka.
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.sessionList}>
-          {sessions.map((sess) => {
-            const isSelected = selectedSession?.id === sess.id;
-            return (
+        <ScrollView
+          style={styles.flexOne}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Top Header */}
+          <View style={styles.topBar}>
+            {onBack && (
               <TouchableOpacity
-                key={sess.id}
-                style={[
-                  styles.sessionCard,
-                  isSelected && styles.sessionCardSelected,
-                ]}
-                onPress={() => setSelectedSession(sess)}
-                activeOpacity={0.8}
+                onPress={onBack}
+                style={styles.backButton}
+                activeOpacity={0.7}
               >
-                <View style={styles.sessionCardHeader}>
-                  <Text style={styles.sessionCourseTitle}>{sess.courseTitle}</Text>
-                  <View style={styles.sessionStatusPill}>
-                    <Text style={styles.sessionStatusText}>BELUM DIBUKA</Text>
-                  </View>
-                </View>
-                <Text style={styles.sessionModuleName}>{sess.moduleName}</Text>
-                {sess.timeSlot ? (
-                  <Text style={styles.sessionTimeSlot}>🕒 {sess.timeSlot}</Text>
-                ) : null}
+                <Feather name="arrow-left" size={20} color={theme.colors.textPrimary} />
               </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-
-      {/* Already Submitted Warning */}
-      {checkingExisting ? (
-        <ActivityIndicator size="small" color="#6B7280" style={{ marginVertical: 8 }} />
-      ) : alreadySubmitted ? (
-        <View style={styles.warningBox}>
-          <Text style={styles.warningTitle}>⚠️ Perhatian</Text>
-          <Text style={styles.warningText}>
-            Anda sudah mengajukan izin untuk sesi ini. Satu praktikan hanya dapat
-            mengajukan 1 kali per sesi.
-          </Text>
-        </View>
-      ) : null}
-
-      {/* Section 2: Reason Input */}
-      <View style={styles.inputSection}>
-        <View style={styles.labelRow}>
-          <Text style={styles.sectionLabel}>Alasan Ketidakhadiran</Text>
-          <Text
-            style={[
-              styles.charCounter,
-              reason.length > 300 || (reason.length > 0 && reason.length < 10)
-                ? styles.charCounterWarning
-                : null,
-            ]}
-          >
-            {reason.length}/300 karakter (min. 10)
-          </Text>
-        </View>
-
-        <TextInput
-          style={[
-            styles.reasonInput,
-            validationError ? styles.reasonInputError : null,
-            alreadySubmitted ? styles.reasonInputDisabled : null,
-          ]}
-          placeholder="Contoh: Mengalami demam tinggi dan harus periksa ke dokter. Surat dokter akan saya susulkan."
-          placeholderTextColor="#9CA3AF"
-          multiline
-          numberOfLines={5}
-          value={reason}
-          onChangeText={handleReasonChange}
-          maxLength={350}
-          editable={!submitting && !alreadySubmitted}
-        />
-
-        {validationError && (
-          <Text style={styles.errorText}>{validationError}</Text>
-        )}
-      </View>
-
-      {/* Submit Error Box (with retry guidance, typed reason is kept intact) */}
-      {submitError && (
-        <View style={styles.submitErrorBox}>
-          <Text style={styles.submitErrorText}>Gagal mengirim: {submitError}</Text>
-          <Text style={styles.submitErrorSubtext}>
-            Alasan Anda tetap tersimpan. Silakan periksa koneksi dan coba lagi.
-          </Text>
-        </View>
-      )}
-
-      {/* Submit Button */}
-      <TouchableOpacity
-        style={[
-          styles.submitButton,
-          (submitting || alreadySubmitted || sessions.length === 0) &&
-            styles.submitButtonDisabled,
-        ]}
-        onPress={handleSubmit}
-        disabled={submitting || alreadySubmitted || sessions.length === 0}
-        activeOpacity={0.8}
-      >
-        {submitting ? (
-          <View style={styles.buttonLoadingRow}>
-            <ActivityIndicator size="small" color="#FFFFFF" />
-            <Text style={styles.submitButtonText}>Memproses Klasifikasi & Menyimpan...</Text>
-          </View>
-        ) : (
-          <Text style={styles.submitButtonText}>Kirim Pengajuan</Text>
-        )}
-      </TouchableOpacity>
-
-      {/* Success Modal / Summary Popup */}
-      <Modal
-        visible={Boolean(submittedResult)}
-        transparent
-        animationType="fade"
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.summaryModal}>
-            <View style={styles.successIconCircle}>
-              <Text style={styles.successIconText}>✓</Text>
+            )}
+            <View style={styles.headerTitleGroup}>
+              <Text style={styles.screenTitle}>Pengajuan Izin</Text>
+              <Text style={styles.screenSubtitle}>Layanan Mandiri Praktikan</Text>
             </View>
-            <Text style={styles.summaryTitle}>Pengajuan Izin Terkirim!</Text>
-            <Text style={styles.summarySubtitle}>
-              Pengajuan Anda telah berhasil dicatat di sistem dan menunggu keputusan asisten.
-            </Text>
+          </View>
 
-            {submittedResult && (
-              <View style={styles.summaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryFieldLabel}>Praktikum:</Text>
-                  <Text style={styles.summaryFieldValue}>
-                    {submittedResult.courseTitle}
-                  </Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryFieldLabel}>Modul:</Text>
-                  <Text style={styles.summaryFieldValue}>
-                    {submittedResult.moduleName}
-                  </Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryFieldLabel}>Status:</Text>
-                  <LeaveStatusBadge status={submittedResult.status} />
-                </View>
-                <View style={styles.summaryDivider} />
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryFieldLabel}>Hasil AI:</Text>
-                  <SentimentBadge sentiment={submittedResult.sentiment} />
-                </View>
-                <Text style={styles.summaryDisclaimer}>
-                  *Hasil klasifikasi sentimen hanya informasi pendukung dan tidak menentukan keputusan izin.
+          {/* Section 1: Choose Session */}
+          <Text style={styles.sectionLabel}>Pilih Sesi Praktikum</Text>
+          {loadingSessions ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="small" color={theme.colors.textPrimary} />
+              <Text style={styles.loadingText}>Memuat sesi praktikum...</Text>
+            </View>
+          ) : sessions.length === 0 ? (
+            <View style={styles.emptySessionCard}>
+              <Feather name="calendar" size={24} color={theme.colors.textMuted} />
+              <Text style={styles.emptySessionText}>
+                Tidak ada sesi praktikum berstatus BELUM DIBUKA.
+              </Text>
+              <Text style={styles.emptySessionSubtext}>
+                Pengajuan izin hanya dapat dilakukan sebelum sesi praktikum dibuka oleh asisten.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.sessionList}>
+              {sessions.map((sess) => {
+                const isSelected = selectedSession?.id === sess.id;
+                return (
+                  <TouchableOpacity
+                    key={sess.id}
+                    style={[
+                      styles.sessionCard,
+                      isSelected && styles.sessionCardSelected,
+                    ]}
+                    onPress={() => setSelectedSession(sess)}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.sessionCardHeader}>
+                      <Text style={styles.sessionCourseTitle} numberOfLines={1}>
+                        {sess.courseTitle}
+                      </Text>
+                      <View style={styles.sessionStatusPill}>
+                        <Text style={styles.sessionStatusText}>BELUM DIBUKA</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.sessionModuleName}>{sess.moduleName}</Text>
+                    {sess.timeSlot ? (
+                      <View style={styles.timeRow}>
+                        <Feather name="clock" size={12} color={theme.colors.textMuted} />
+                        <Text style={styles.sessionTimeSlot}>{sess.timeSlot}</Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Already Submitted Warning */}
+          {checkingExisting ? (
+            <ActivityIndicator size="small" color={theme.colors.textMuted} style={{ marginVertical: 8 }} />
+          ) : alreadySubmitted ? (
+            <View style={styles.warningBox}>
+              <Feather name="alert-triangle" size={16} color="#D97706" style={styles.warningIcon} />
+              <View style={styles.warningTextCol}>
+                <Text style={styles.warningTitle}>Perhatian</Text>
+                <Text style={styles.warningText}>
+                  Anda sudah mengajukan izin untuk sesi ini. Satu praktikan hanya dapat
+                  mengajukan 1 kali per sesi.
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Section 2: Reason Input Card */}
+          <View style={styles.formCard}>
+            <View style={styles.labelRow}>
+              <Text style={styles.formCardTitle}>Alasan Ketidakhadiran</Text>
+              <Text
+                style={[
+                  styles.charCounter,
+                  reason.length > 300 || (reason.length > 0 && reason.length < 10)
+                    ? styles.charCounterWarning
+                    : null,
+                ]}
+              >
+                {reason.length}/300 (min. 10)
+              </Text>
+            </View>
+
+            <TextInput
+              style={[
+                styles.reasonInput,
+                validationError ? styles.reasonInputError : null,
+                alreadySubmitted ? styles.reasonInputDisabled : null,
+              ]}
+              placeholder="Contoh: Mengalami demam tinggi dan harus periksa ke dokter. Surat dokter akan saya susulkan."
+              placeholderTextColor={theme.colors.textMuted}
+              multiline
+              numberOfLines={5}
+              value={reason}
+              onChangeText={handleReasonChange}
+              maxLength={350}
+              editable={!submitting && !alreadySubmitted}
+            />
+
+            {validationError && (
+              <Text style={styles.errorText}>{validationError}</Text>
+            )}
+
+            {/* Submit Error Box */}
+            {submitError && (
+              <View style={styles.submitErrorBox}>
+                <Text style={styles.submitErrorText}>Gagal mengirim: {submitError}</Text>
+                <Text style={styles.submitErrorSubtext}>
+                  Alasan Anda tetap tersimpan. Silakan periksa koneksi dan coba lagi.
                 </Text>
               </View>
             )}
 
+            {/* Submit Button */}
             <TouchableOpacity
-              style={styles.modalDoneButton}
-              onPress={handleFinishSummary}
-              activeOpacity={0.8}
+              style={[
+                styles.submitButton,
+                (submitting || alreadySubmitted || sessions.length === 0) &&
+                  styles.submitButtonDisabled,
+              ]}
+              onPress={handleSubmit}
+              disabled={submitting || alreadySubmitted || sessions.length === 0}
+              activeOpacity={0.85}
             >
-              <Text style={styles.modalDoneButtonText}>Lihat Daftar Izin Saya</Text>
+              {submitting ? (
+                <View style={styles.buttonLoadingRow}>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <Text style={styles.submitButtonText}>Memproses & Menganalisis AI...</Text>
+                </View>
+              ) : (
+                <Text style={styles.submitButtonText}>Kirim Pengajuan Izin</Text>
+              )}
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        </ScrollView>
+
+        {/* Success Modal / Summary Popup */}
+        <Modal
+          visible={Boolean(submittedResult)}
+          transparent
+          animationType="fade"
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.summaryModal}>
+              <View style={styles.successIconCircle}>
+                <Feather name="check" size={26} color="#FFFFFF" />
+              </View>
+              <Text style={styles.summaryTitle}>Pengajuan Izin Terkirim!</Text>
+              <Text style={styles.summarySubtitle}>
+                Pengajuan Anda telah berhasil dicatat di sistem dan menunggu keputusan asisten lab.
+              </Text>
+
+              {submittedResult && (
+                <View style={styles.summaryCard}>
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryFieldLabel}>Praktikum:</Text>
+                    <Text style={styles.summaryFieldValue}>
+                      {submittedResult.courseTitle}
+                    </Text>
+                  </View>
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryFieldLabel}>Modul:</Text>
+                    <Text style={styles.summaryFieldValue}>
+                      {submittedResult.moduleName}
+                    </Text>
+                  </View>
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryFieldLabel}>Status:</Text>
+                    <LeaveStatusBadge status={submittedResult.status} />
+                  </View>
+                  <View style={styles.summaryDivider} />
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryFieldLabel}>Hasil AI:</Text>
+                    <SentimentBadge sentiment={submittedResult.sentiment} />
+                  </View>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={styles.modalFinishButton}
+                onPress={handleFinishSummary}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalFinishButtonText}>Selesai & Tutup</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  flexOne: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
-  content: {
-    padding: 16,
-    paddingBottom: 40,
+  safeArea: {
+    flex: 1,
   },
-  headerRow: {
-    marginBottom: 12,
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
   },
-  backButton: {
-    paddingVertical: 6,
-    marginBottom: 8,
-  },
-  backButtonText: {
-    color: '#2563EB',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  pageTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  loadingBox: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    paddingVertical: 14,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    ...theme.shadows.subtle,
+  },
+  headerTitleGroup: {
+    flex: 1,
+  },
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  screenSubtitle: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 1,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    marginBottom: 10,
+    marginTop: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  loadingBox: {
+    backgroundColor: theme.colors.surface,
+    padding: 18,
+    borderRadius: theme.borderRadius.lg,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
     marginBottom: 16,
   },
   loadingText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
-  emptySessionBox: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FCD34D',
-    borderWidth: 1,
-    padding: 16,
-    borderRadius: 8,
+  emptySessionCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xl,
+    padding: 24,
+    alignItems: 'center',
     marginBottom: 16,
+    gap: 6,
+    ...theme.shadows.card,
   },
   emptySessionText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#92400E',
+    color: theme.colors.textPrimary,
+    textAlign: 'center',
+    marginTop: 4,
   },
   emptySessionSubtext: {
     fontSize: 12,
-    color: '#B45309',
-    marginTop: 4,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   sessionList: {
     gap: 10,
     marginBottom: 16,
   },
   sessionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    ...theme.shadows.card,
   },
   sessionCardSelected: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
+    borderColor: theme.colors.textPrimary,
+    backgroundColor: '#FAF9FC',
   },
   sessionCardHeader: {
     flexDirection: 'row',
@@ -526,130 +577,146 @@ const styles = StyleSheet.create({
   },
   sessionCourseTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
     flex: 1,
+    marginRight: 8,
   },
   sessionStatusPill: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: theme.colors.status.belumDibuka.bg,
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingVertical: 3,
+    borderRadius: theme.borderRadius.full,
   },
   sessionStatusText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#D97706',
+    fontSize: 9,
+    fontWeight: '800',
+    color: theme.colors.status.belumDibuka.text,
   },
   sessionModuleName: {
     fontSize: 13,
-    color: '#4B5563',
+    color: theme.colors.textSecondary,
+    marginBottom: 6,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   sessionTimeSlot: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    fontWeight: '500',
   },
   warningBox: {
-    backgroundColor: '#FEF2F2',
-    borderLeftWidth: 4,
-    borderLeftColor: '#EF4444',
-    padding: 12,
-    borderRadius: 8,
+    flexDirection: 'row',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: theme.borderRadius.lg,
+    padding: 14,
     marginBottom: 16,
   },
+  warningIcon: {
+    marginRight: 8,
+    marginTop: 2,
+  },
+  warningTextCol: {
+    flex: 1,
+  },
   warningTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#B91C1C',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
     marginBottom: 2,
   },
   warningText: {
-    fontSize: 13,
-    color: '#991B1B',
-    lineHeight: 18,
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 17,
   },
-  inputSection: {
+  formCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xxl,
+    padding: 20,
     marginBottom: 16,
+    ...theme.shadows.card,
   },
   labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
+  },
+  formCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
   },
   charCounter: {
     fontSize: 11,
-    color: '#6B7280',
-    fontWeight: '600',
+    color: theme.colors.textMuted,
   },
   charCounterWarning: {
-    color: '#DC2626',
+    color: '#D97706',
+    fontWeight: '700',
   },
   reasonInput: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: '#CED4DA',
-    borderRadius: 8,
-    padding: 12,
-    minHeight: 120,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    padding: 14,
+    fontSize: 13,
+    color: theme.colors.textPrimary,
+    minHeight: 110,
     textAlignVertical: 'top',
-    fontSize: 14,
-    color: '#1F2937',
-    marginTop: 4,
+    marginBottom: 6,
   },
   reasonInputError: {
-    borderColor: '#DC2626',
-    backgroundColor: '#FEF2F2',
+    borderColor: '#EF4444',
+    backgroundColor: '#FFF5F5',
   },
   reasonInputDisabled: {
-    backgroundColor: '#F3F4F6',
-    color: '#9CA3AF',
+    opacity: 0.6,
   },
   errorText: {
+    color: '#EF4444',
     fontSize: 12,
-    color: '#DC2626',
-    marginTop: 4,
-    fontWeight: '500',
+    marginBottom: 12,
   },
   submitErrorBox: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 8,
+    backgroundColor: '#FEE2E2',
     padding: 12,
-    marginBottom: 16,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: 14,
   },
   submitErrorText: {
-    fontSize: 13,
-    fontWeight: '700',
     color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '700',
   },
   submitErrorSubtext: {
-    fontSize: 12,
-    color: '#7F1D1D',
+    color: '#991B1B',
+    fontSize: 11,
     marginTop: 2,
   },
   submitButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.colors.textPrimary,
+    borderRadius: theme.borderRadius.md,
     paddingVertical: 14,
-    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    marginTop: 6,
+    ...theme.shadows.subtle,
   },
   submitButtonDisabled: {
-    backgroundColor: '#93C5FD',
-    opacity: 0.6,
-    elevation: 0,
+    opacity: 0.5,
   },
   submitButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
   buttonLoadingRow: {
     flexDirection: 'row',
@@ -658,56 +725,50 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   summaryModal: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xxl,
     padding: 24,
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 380,
     alignItems: 'center',
-    elevation: 8,
+    ...theme.shadows.card,
   },
   successIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#DCFCE7',
-    justifyContent: 'center',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#166534',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  successIconText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#16A34A',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   summaryTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#111827',
-    marginBottom: 4,
+    color: theme.colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 6,
   },
   summarySubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
+    fontSize: 12,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 16,
     lineHeight: 18,
+    marginBottom: 18,
   },
   summaryCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 10,
-    padding: 12,
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderRadius: theme.borderRadius.lg,
+    padding: 14,
     width: '100%',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 20,
     gap: 8,
+    marginBottom: 20,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -715,41 +776,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryFieldLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4B5563',
+    fontSize: 12,
+    color: theme.colors.textSecondary,
   },
   summaryFieldValue: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#1F2937',
+    color: theme.colors.textPrimary,
   },
   summaryDivider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: theme.colors.borderLight,
     marginVertical: 4,
   },
-  summaryDisclaimer: {
-    fontSize: 10,
-    color: '#6B7280',
-    fontStyle: 'italic',
-    lineHeight: 14,
-    marginTop: 4,
-  },
-  modalDoneButton: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+  modalFinishButton: {
+    backgroundColor: theme.colors.textPrimary,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 13,
     width: '100%',
     alignItems: 'center',
   },
-  modalDoneButtonText: {
+  modalFinishButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
+    fontSize: 14,
   },
 });
 
 export default LeaveRequestFormScreen;
-

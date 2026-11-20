@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   ViewStyle,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { theme } from '../theme';
 
 export interface ErrorStateProps {
   title?: string;
@@ -32,9 +34,9 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   const label = retryLabel || retryText || 'Coba Lagi';
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.card, style]}>
       <View style={styles.iconCircle}>
-        <Text style={styles.iconText}>⚠️</Text>
+        <Feather name="alert-triangle" size={24} color="#DC2626" />
       </View>
 
       <Text style={styles.titleText}>{title}</Text>
@@ -68,77 +70,68 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xl,
     padding: 24,
-    minHeight: 220,
+    alignItems: 'center',
+    marginVertical: 14,
+    ...theme.shadows.card,
   },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#FEE2E2',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  iconText: {
-    fontSize: 28,
+    marginBottom: 14,
   },
   titleText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#1F2937',
-    marginBottom: 8,
+    color: theme.colors.textPrimary,
+    marginBottom: 6,
     textAlign: 'center',
   },
   messageText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 19,
-    marginBottom: 20,
-    paddingHorizontal: 12,
+    marginBottom: 18,
   },
   buttonContainer: {
     flexDirection: 'row',
-    gap: 12,
-    flexWrap: 'wrap',
+    gap: 10,
+    width: '100%',
     justifyContent: 'center',
   },
   retryButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.colors.textPrimary,
     paddingVertical: 12,
     paddingHorizontal: 22,
-    borderRadius: 10,
-    elevation: 2,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
   },
   retryButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   secondaryButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: theme.colors.border,
     paddingVertical: 12,
     paddingHorizontal: 22,
-    borderRadius: 10,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
   },
   secondaryButtonText: {
-    color: '#374151',
-    fontSize: 14,
-    fontWeight: '600',
+    color: theme.colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
 

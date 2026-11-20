@@ -8,7 +8,10 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { ClassItem } from '../types/models';
 import {
   listenClasses,
@@ -23,6 +26,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { ClassFormModal } from '../components/ClassFormModal';
 import { getErrorMessage } from '../utils/getErrorMessage';
+import { theme } from '../theme';
 
 export const ClassManagementScreen: React.FC = () => {
   const router = useRouter();
@@ -111,176 +115,195 @@ export const ClassManagementScreen: React.FC = () => {
 
   if (profile?.role !== 'asisten') {
     return (
-      <SafeAreaView style={styles.container}>
-        <ErrorState
-          title="Akses Ditolak"
-          message="Anda tidak memiliki izin untuk mengakses halaman ini. Halaman ini khusus untuk Asisten Laboratorium."
-          onRetry={() => router.replace('/')}
-          retryText="Kembali ke Beranda"
-        />
-      </SafeAreaView>
+      <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+        <SafeAreaView style={styles.safeArea}>
+          <ErrorState
+            title="Akses Ditolak"
+            message="Anda tidak memiliki izin untuk mengakses halaman ini. Halaman ini khusus untuk Asisten Laboratorium."
+            onRetry={() => router.replace('/')}
+            retryText="Kembali ke Beranda"
+          />
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
-      {/* Header Bar */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.backButtonText}>← Kembali</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Kelola Data Kelas</Text>
-        <Text style={styles.headerSubtitle}>
-          Daftar kelas praktikum & pengaturan mahasiswa praktikan
-        </Text>
-      </View>
+    <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <StatusBar style="dark" />
 
-      {/* Konten Utama */}
-      {loading ? (
-        <LoadingState message="Memuat daftar kelas praktikum..." />
-      ) : error ? (
-        <ErrorState message={error} onRetry={() => setError(null)} />
-      ) : classes.length === 0 ? (
-        <View style={styles.emptyWrapper}>
-          <EmptyState
-            message="Belum Ada Kelas"
-            description="Silakan tambahkan kelas praktikum baru melalui tombol di bawah."
-          />
+        {/* Header Bar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <Feather name="arrow-left" size={20} color={theme.colors.textPrimary} />
+          </TouchableOpacity>
+
+          <View style={styles.headerTitleGroup}>
+            <Text style={styles.screenTitle}>Kelola Data Kelas</Text>
+            <Text style={styles.screenSubtitle}>
+              Daftar kelas praktikum & pengaturan mahasiswa
+            </Text>
+          </View>
         </View>
-      ) : (
-        <FlatList
-          data={classes}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.titleCol}>
-                  <Text style={styles.courseTitle}>{item.courseTitle}</Text>
-                  <Text style={styles.classGroupBadge}>{item.classGroup}</Text>
+
+        {/* Konten Utama */}
+        {loading ? (
+          <LoadingState message="Memuat daftar kelas praktikum..." />
+        ) : error ? (
+          <ErrorState message={error} onRetry={() => setError(null)} />
+        ) : classes.length === 0 ? (
+          <View style={styles.emptyWrapper}>
+            <EmptyState
+              message="Belum Ada Kelas Praktikum"
+              description="Silakan tambahkan kelas praktikum baru melalui tombol di bawah."
+            />
+          </View>
+        ) : (
+          <FlatList
+            data={classes}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.titleCol}>
+                    <Text style={styles.courseTitle}>{item.courseTitle}</Text>
+                    <View style={styles.classGroupPill}>
+                      <Text style={styles.classGroupText}>{item.classGroup}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      style={styles.editButton}
+                      onPress={() => handleOpenEditModal(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Feather name="edit-2" size={13} color={theme.colors.textPrimary} style={styles.btnIcon} />
+                      <Text style={styles.editButtonText}>Ubah</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handlePromptDelete(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Feather name="trash-2" size={13} color="#DC2626" style={styles.btnIcon} />
+                      <Text style={styles.deleteButtonText}>Hapus</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <View style={styles.actionRow}>
-                  <TouchableOpacity
-                    style={styles.editButton}
-                    onPress={() => handleOpenEditModal(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.editButtonText}>Ubah</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handlePromptDelete(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.deleteButtonText}>Hapus</Text>
-                  </TouchableOpacity>
+
+                <View style={styles.cardDivider} />
+
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Ruangan Lab:</Text>
+                  <Text style={styles.infoValue}>{item.roomName}</Text>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Jumlah Peserta:</Text>
+                  <Text style={styles.infoValue}>
+                    {item.participantIds.length} Mahasiswa
+                  </Text>
                 </View>
               </View>
+            )}
+          />
+        )}
 
-              <View style={styles.cardDivider} />
+        {/* Floating Action Button (FAB) Tambah Kelas */}
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={handleOpenAddModal}
+          activeOpacity={0.85}
+        >
+          <Feather name="plus" size={18} color="#FFFFFF" style={styles.fabIcon} />
+          <Text style={styles.fabText}>Tambah Kelas</Text>
+        </TouchableOpacity>
 
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Ruangan Lab:</Text>
-                <Text style={styles.infoValue}>{item.roomName}</Text>
-              </View>
-
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Jumlah Peserta:</Text>
-                <Text style={styles.infoValue}>
-                  {item.participantIds.length} Mahasiswa
-                </Text>
-              </View>
-            </View>
-          )}
+        {/* Modal Form Tambah/Ubah Kelas */}
+        <ClassFormModal
+          visible={formModalVisible}
+          initialData={selectedClass}
+          onClose={() => setFormModalVisible(false)}
+          onSubmit={handleSubmitForm}
         />
-      )}
 
-      {/* Floating Action Button (FAB) Tambah Kelas */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={handleOpenAddModal}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.fabIcon}>+</Text>
-        <Text style={styles.fabText}>Tambah Kelas</Text>
-      </TouchableOpacity>
-
-      {/* Modal Form Tambah/Ubah Kelas */}
-      <ClassFormModal
-        visible={formModalVisible}
-        initialData={selectedClass}
-        onClose={() => setFormModalVisible(false)}
-        onSubmit={handleSubmitForm}
-      />
-
-      {/* Modal Konfirmasi Hapus Kelas */}
-      <ConfirmModal
-        visible={deleteModalVisible}
-        title="Hapus Kelas Praktikum?"
-        message={`Apakah Anda yakin ingin menghapus kelas "${classToDelete?.courseTitle} - ${classToDelete?.classGroup}"? Tindakan ini tidak dapat dibatalkan.`}
-        confirmText={deleting ? 'Menghapus...' : 'Ya, Hapus'}
-        cancelText="Batal"
-        confirmVariant="danger"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => {
-          if (!deleting) setDeleteModalVisible(false);
-        }}
-      />
-    </SafeAreaView>
+        {/* Modal Konfirmasi Hapus Kelas */}
+        <ConfirmModal
+          visible={deleteModalVisible}
+          title="Hapus Kelas Praktikum?"
+          message={`Apakah Anda yakin ingin menghapus kelas "${classToDelete?.courseTitle} - ${classToDelete?.classGroup}"? Tindakan ini tidak dapat dibatalkan.`}
+          confirmText={deleting ? 'Menghapus...' : 'Ya, Hapus'}
+          cancelText="Batal"
+          confirmVariant="danger"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => {
+            if (!deleting) setDeleteModalVisible(false);
+          }}
+        />
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  flexOne: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
-    padding: 16,
   },
-  header: {
-    marginBottom: 16,
+  safeArea: {
+    flex: 1,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   backButton: {
-    paddingVertical: 4,
-    marginBottom: 8,
-    alignSelf: 'flex-start',
+    width: 44,
+    height: 44,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    ...theme.shadows.subtle,
   },
-  backButtonText: {
-    color: '#2563EB',
-    fontSize: 14,
-    fontWeight: '600',
+  headerTitleGroup: {
+    flex: 1,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.5,
   },
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
+  screenSubtitle: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 1,
   },
   listContent: {
+    paddingHorizontal: 16,
     paddingBottom: 90,
   },
   emptyWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 16,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xl,
+    padding: 18,
+    marginBottom: 14,
+    ...theme.shadows.card,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -289,94 +312,101 @@ const styles = StyleSheet.create({
   },
   titleCol: {
     flex: 1,
-    marginRight: 10,
+    marginRight: 8,
   },
   courseTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
   },
-  classGroupBadge: {
-    fontSize: 12,
+  classGroupPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  classGroupText: {
+    fontSize: 11,
+    fontWeight: '800',
     color: '#2563EB',
-    fontWeight: '600',
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   editButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: '#EFF6FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: theme.colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: theme.borderRadius.sm,
   },
   editButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1D4ED8',
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
   },
   deleteButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FEE2E2',
     borderWidth: 1,
     borderColor: '#FECACA',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: theme.borderRadius.sm,
   },
   deleteButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#DC2626',
   },
   cardDivider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.borderLight,
     marginVertical: 12,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   infoLabel: {
-    fontSize: 13,
-    color: '#6B7280',
+    fontSize: 12,
+    color: theme.colors.textSecondary,
   },
   infoValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
   },
   fab: {
     position: 'absolute',
-    right: 16,
-    bottom: 20,
-    backgroundColor: '#2563EB',
+    bottom: 24,
+    right: 20,
+    backgroundColor: theme.colors.textPrimary,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 13,
     paddingHorizontal: 20,
-    borderRadius: 30,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    borderRadius: theme.borderRadius.full,
+    ...theme.shadows.card,
   },
   fabIcon: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
     marginRight: 6,
   },
   fabText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  btnIcon: {
+    marginRight: 3,
   },
 });
 

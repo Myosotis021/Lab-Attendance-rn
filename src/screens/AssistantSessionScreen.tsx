@@ -5,12 +5,14 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { SessionItem, SessionStatus } from '../types/models';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { AttendanceRecapList } from '../components/AttendanceRecapList';
@@ -20,6 +22,7 @@ import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
 import { useAuth } from '../hooks/useAuth';
 import { getErrorMessage } from '../utils/getErrorMessage';
+import { theme } from '../theme';
 
 export interface AssistantSessionScreenProps {
   session?: SessionItem;
@@ -107,7 +110,6 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
     };
   }, [sessionId]);
 
-  // Status badge config
   const getStatusBadgeConfig = (status: SessionStatus) => {
     switch (status) {
       case 'BELUM_DIBUKA':
@@ -138,45 +140,35 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
   };
 
   const handleOpenSessionPress = () => {
-    if (session?.status !== 'BELUM_DIBUKA' || isUpdatingStatus) return;
     setPendingAction('OPEN');
     setModalVisible(true);
   };
 
   const handleCloseSessionPress = () => {
-    if (session?.status !== 'BERJALAN' || isUpdatingStatus) return;
     setPendingAction('CLOSE');
     setModalVisible(true);
   };
 
-  const handleConfirmAction = async () => {
+  const handleConfirmStatusChange = async () => {
     if (!session || !pendingAction) return;
+
+    const newStatus: SessionStatus =
+      pendingAction === 'OPEN' ? 'BERJALAN' : 'SELESAI';
 
     try {
       setIsUpdatingStatus(true);
+      await setSessionStatus(session.id, newStatus);
       setModalVisible(false);
-
-      if (pendingAction === 'OPEN') {
-        await setSessionStatus(session.id, 'BERJALAN');
-      } else if (pendingAction === 'CLOSE') {
-        await setSessionStatus(session.id, 'SELESAI');
-      }
+      setPendingAction(null);
     } catch (err: unknown) {
-      const msg = getErrorMessage(err);
-      Alert.alert('Gagal Mengubah Status', msg);
+      const errorMsg = getErrorMessage(err);
+      Alert.alert('Gagal Mengubah Status', errorMsg);
     } finally {
       setIsUpdatingStatus(false);
-      setPendingAction(null);
     }
   };
 
-  const handleCancelAction = () => {
-    if (isUpdatingStatus) return;
-    setModalVisible(false);
-    setPendingAction(null);
-  };
-
-  const handleBackPress = () => {
+  const handleBack = () => {
     if (onBack) {
       onBack();
     } else if (router.canGoBack()) {
@@ -186,361 +178,385 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
     }
   };
 
-  const currentStatus = session?.status || 'BELUM_DIBUKA';
-  const badgeConfig = getStatusBadgeConfig(currentStatus);
-
   if (profile?.role !== 'asisten') {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <ErrorState
-          title="Akses Ditolak"
-          message="Anda tidak memiliki izin untuk mengakses halaman ini. Halaman ini khusus untuk Asisten Laboratorium."
-          onRetry={handleBackPress}
-          retryText="Kembali"
-        />
-      </SafeAreaView>
+      <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+        <SafeAreaView style={styles.safeArea}>
+          <ErrorState
+            title="Akses Ditolak"
+            message="Halaman ini khusus untuk Asisten Laboratorium untuk mengelola sesi praktikum."
+            onRetry={handleBack}
+            retryText="Kembali"
+          />
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   if (sessionLoading && !session) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <LoadingState message="Memuat informasi sesi..." />
-      </SafeAreaView>
+      <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+        <SafeAreaView style={styles.safeArea}>
+          <LoadingState message="Memuat informasi sesi praktikum..." />
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   if (sessionError && !session) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <ErrorState message={sessionError} onRetry={() => router.back()} retryText="Kembali" />
-      </SafeAreaView>
+      <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+        <SafeAreaView style={styles.safeArea}>
+          <ErrorState message={sessionError} onRetry={handleBack} retryText="Kembali" />
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
+  const currentStatus = session?.status || 'BELUM_DIBUKA';
+  const badgeConfig = getStatusBadgeConfig(currentStatus);
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+    <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <StatusBar style="dark" />
 
-      {/* Header Bar */}
-      <View style={styles.headerBar}>
-        <TouchableOpacity
-          onPress={handleBackPress}
-          style={styles.backButton}
-          activeOpacity={0.7}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.backButtonText}>← Kembali</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerBarTitle}>Kelola Sesi Asisten</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+          {/* Top Bar with Rounded Back Button */}
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={handleBack}
+              activeOpacity={0.7}
+            >
+              <Feather name="arrow-left" size={20} color={theme.colors.textPrimary} />
+            </TouchableOpacity>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* 2.1 Kartu Header Sesi Praktikum */}
-        <View style={styles.sessionCard}>
-          <View style={styles.cardTopRow}>
-            <View style={styles.titleContainer}>
-              <Text style={styles.courseTitle}>{session?.courseTitle}</Text>
-              <Text style={styles.moduleName}>{session?.moduleName}</Text>
-            </View>
-            <View style={[styles.statusBadge, badgeConfig.containerStyle]}>
-              <Text style={[styles.statusBadgeText, badgeConfig.textStyle]}>
-                {badgeConfig.label}
-              </Text>
+            <View style={styles.headerTitleGroup}>
+              <Text style={styles.screenTitle}>Kelola Sesi Praktikum</Text>
+              <Text style={styles.screenSubtitle}>Panel Kontrol Asisten</Text>
             </View>
           </View>
 
-          <View style={styles.cardDivider} />
-
-          <View style={styles.metaContainer}>
-            <View style={styles.metaRow}>
-              <Text style={styles.metaIcon}>🏫</Text>
-              <Text style={styles.metaText}>
-                {session?.classGroup} • {session?.roomName}
-              </Text>
+          {/* Session Overview Card */}
+          <View style={styles.sessionCard}>
+            <View style={styles.cardHeaderRow}>
+              <View style={styles.titleWrapper}>
+                <Text style={styles.courseTitle}>{session?.courseTitle}</Text>
+                <Text style={styles.moduleName}>{session?.moduleName}</Text>
+              </View>
+              <View style={[styles.badge, badgeConfig.containerStyle]}>
+                <Text style={[styles.badgeText, badgeConfig.textStyle]}>
+                  {badgeConfig.label}
+                </Text>
+              </View>
             </View>
-            <View style={styles.metaRow}>
-              <Text style={styles.metaIcon}>🕒</Text>
-              <Text style={styles.metaText}>{session?.timeSlot}</Text>
+
+            <View style={styles.metaDivider} />
+
+            <View style={styles.metaGrid}>
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Kelas & Ruangan:</Text>
+                <Text style={styles.metaValue}>
+                  {session?.classGroup} • {session?.roomName}
+                </Text>
+              </View>
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Waktu:</Text>
+                <Text style={styles.metaValue}>{session?.timeSlot}</Text>
+              </View>
+            </View>
+
+            {/* Action Buttons based on Session Status */}
+            <View style={styles.statusActionSection}>
+              {currentStatus === 'BELUM_DIBUKA' && (
+                <TouchableOpacity
+                  style={styles.openSessionBtn}
+                  onPress={handleOpenSessionPress}
+                  disabled={isUpdatingStatus}
+                  activeOpacity={0.85}
+                >
+                  {isUpdatingStatus ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <>
+                      <Feather name="play-circle" size={17} color="#FFFFFF" style={styles.btnIcon} />
+                      <Text style={styles.openSessionBtnText}>
+                        Buka Sesi Praktikum
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {currentStatus === 'BERJALAN' && (
+                <View style={styles.runningActionGroup}>
+                  <View style={styles.liveIndicatorBox}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.liveText}>
+                      Sesi sedang berjalan. Mahasiswa dapat melakukan presensi.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.closeSessionBtn}
+                    onPress={handleCloseSessionPress}
+                    disabled={isUpdatingStatus}
+                    activeOpacity={0.85}
+                  >
+                    {isUpdatingStatus ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <>
+                        <Feather name="check-circle" size={16} color="#FFFFFF" style={styles.btnIcon} />
+                        <Text style={styles.closeSessionBtnText}>
+                          Tutup & Selesaikan Sesi
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {currentStatus === 'SELESAI' && (
+                <View style={styles.endedNoticeBox}>
+                  <Feather name="check-circle" size={16} color="#991B1B" style={styles.btnIcon} />
+                  <Text style={styles.endedNoticeText}>
+                    Sesi praktikum telah ditutup secara permanen.
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
-        </View>
 
-        {/* 2.2 Kontrol Siklus Sesi (Buka & Tutup Sesi) */}
-        <View style={styles.actionSection}>
-          <Text style={styles.sectionHeading}>Kontrol Siklus Sesi</Text>
-
-          {currentStatus === 'BELUM_DIBUKA' && (
-            <View>
-              <TouchableOpacity
-                style={[
-                  styles.mainActionButton,
-                  styles.btnOpenSession,
-                  isUpdatingStatus && styles.btnDisabled,
-                ]}
-                onPress={handleOpenSessionPress}
-                disabled={isUpdatingStatus}
-                activeOpacity={0.8}
-              >
-                {isUpdatingStatus ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.mainActionButtonText}>▶ Buka Sesi Praktikum</Text>
-                )}
-              </TouchableOpacity>
-              <Text style={styles.actionHint}>
-                Praktikan akan dapat melakukan presensi kehadiran setelah sesi dibuka.
-              </Text>
-            </View>
+          {/* Real-time Attendance Recap List */}
+          {attendanceLoading ? (
+            <LoadingState message="Memuat rekapitulasi kehadiran..." />
+          ) : attendanceError ? (
+            <ErrorState message={attendanceError} />
+          ) : (
+            <AttendanceRecapList attendees={attendanceList} />
           )}
+        </ScrollView>
 
-          {currentStatus === 'BERJALAN' && (
-            <View>
-              <TouchableOpacity
-                style={[
-                  styles.mainActionButton,
-                  styles.btnCloseSession,
-                  isUpdatingStatus && styles.btnDisabled,
-                ]}
-                onPress={handleCloseSessionPress}
-                disabled={isUpdatingStatus}
-                activeOpacity={0.8}
-              >
-                {isUpdatingStatus ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.mainActionButtonText}>⏹ Tutup Sesi Praktikum</Text>
-                )}
-              </TouchableOpacity>
-              <Text style={styles.actionHint}>
-                Sesi sedang berlangsung secara real-time. Tutup sesi jika waktu praktikum telah berakhir.
-              </Text>
-            </View>
-          )}
-
-          {currentStatus === 'SELESAI' && (
-            <View>
-              <TouchableOpacity
-                style={[styles.mainActionButton, styles.btnDisabled]}
-                disabled={true}
-                activeOpacity={1}
-              >
-                <Text style={styles.mainActionButtonText}>🔒 Sesi Telah Ditutup (Selesai)</Text>
-              </TouchableOpacity>
-              <Text style={styles.actionHint}>
-                Sesi praktikum telah diakhiri. Pengisian presensi telah dikunci dan tidak dapat diubah kembali.
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* 2.3 Rekapitulasi Kehadiran Praktikan Real-time (SRS-11) */}
-        {attendanceLoading ? (
-          <LoadingState message="Memuat rekap presensi..." />
-        ) : attendanceError ? (
-          <ErrorState message={attendanceError} />
-        ) : (
-          <AttendanceRecapList attendees={attendanceList} />
-        )}
-      </ScrollView>
-
-      {/* Confirmation Modal */}
-      <ConfirmModal
-        visible={modalVisible}
-        title={
-          pendingAction === 'OPEN'
-            ? 'Buka Sesi Praktikum?'
-            : 'Tutup Sesi Praktikum?'
-        }
-        message={
-          pendingAction === 'OPEN'
-            ? 'Praktikan akan dapat melakukan presensi kehadiran setelah sesi dibuka.'
-            : 'Sesi yang ditutup tidak dapat dibuka kembali dan presensi akan diakhiri secara permanen.'
-        }
-        confirmText={
-          pendingAction === 'OPEN' ? 'Ya, Buka Sekarang' : 'Ya, Tutup Sesi'
-        }
-        cancelText="Batal"
-        confirmVariant={pendingAction === 'OPEN' ? 'success' : 'danger'}
-        onConfirm={handleConfirmAction}
-        onCancel={handleCancelAction}
-      />
-    </SafeAreaView>
+        {/* Status Confirmation Modal */}
+        <ConfirmModal
+          visible={modalVisible}
+          title={
+            pendingAction === 'OPEN'
+              ? 'Buka Sesi Praktikum?'
+              : 'Tutup Sesi Praktikum?'
+          }
+          message={
+            pendingAction === 'OPEN'
+              ? 'Membuka sesi akan memungkinkan praktikan untuk mengisi presensi kehadiran sekarang.'
+              : 'Menutup sesi akan mengakhiri pengisian presensi. Praktikan tidak akan dapat mengisi presensi lagi.'
+          }
+          confirmText={
+            pendingAction === 'OPEN' ? 'Ya, Buka Sesi' : 'Ya, Tutup Sesi'
+          }
+          confirmVariant={pendingAction === 'OPEN' ? 'primary' : 'danger'}
+          onConfirm={handleConfirmStatusChange}
+          onCancel={() => setModalVisible(false)}
+        />
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  flexOne: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  backButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2563EB',
-  },
-  headerBarTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  headerSpacer: {
-    width: 60,
-  },
-  scrollView: {
+  safeArea: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 16,
     paddingBottom: 32,
   },
-  sessionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginBottom: 6,
   },
-  cardTopRow: {
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.subtle,
+  },
+  headerTitleGroup: {
+    marginLeft: 14,
+    flex: 1,
+  },
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  screenSubtitle: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 1,
+  },
+  sessionCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xxl,
+    padding: 20,
+    marginBottom: 16,
+    ...theme.shadows.card,
+  },
+  cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  titleContainer: {
+  titleWrapper: {
     flex: 1,
-    marginRight: 8,
+    marginRight: 10,
   },
   courseTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 18,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
   },
   moduleName: {
     fontSize: 13,
-    color: '#4B5563',
-    marginTop: 2,
+    color: theme.colors.textSecondary,
+    marginTop: 3,
   },
-  statusBadge: {
+  badge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.full,
     borderWidth: 1,
   },
-  statusBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   badgeBelumDibuka: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FDE68A',
+    backgroundColor: theme.colors.status.belumDibuka.bg,
+    borderColor: theme.colors.status.belumDibuka.border,
   },
   badgeTextBelumDibuka: {
-    color: '#D97706',
+    color: theme.colors.status.belumDibuka.text,
   },
   badgeBerjalan: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#BBF7D0',
+    backgroundColor: theme.colors.status.berjalan.bg,
+    borderColor: theme.colors.status.berjalan.border,
   },
   badgeTextBerjalan: {
-    color: '#15803D',
+    color: theme.colors.status.berjalan.text,
   },
   badgeSelesai: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#FECACA',
+    backgroundColor: theme.colors.status.selesai.bg,
+    borderColor: theme.colors.status.selesai.border,
   },
   badgeTextSelesai: {
-    color: '#DC2626',
+    color: theme.colors.status.selesai.text,
   },
-  cardDivider: {
+  metaDivider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
-    marginVertical: 12,
+    backgroundColor: theme.colors.borderLight,
+    marginVertical: 14,
   },
-  metaContainer: {
-    gap: 6,
+  metaGrid: {
+    gap: 8,
+    marginBottom: 16,
   },
   metaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  metaIcon: {
-    fontSize: 14,
-    marginRight: 8,
+  metaLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
   },
-  metaText: {
-    fontSize: 13,
-    color: '#4B5563',
-  },
-  actionSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  sectionHeading: {
-    fontSize: 14,
+  metaValue: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 12,
+    color: theme.colors.textPrimary,
   },
-  mainActionButton: {
-    paddingVertical: 14,
-    borderRadius: 10,
+  statusActionSection: {
+    marginTop: 4,
+  },
+  openSessionBtn: {
+    backgroundColor: theme.colors.textPrimary,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.subtle,
+  },
+  openSessionBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  runningActionGroup: {
+    gap: 10,
+  },
+  liveIndicatorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    padding: 10,
+    borderRadius: theme.borderRadius.md,
+    gap: 8,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#166534',
+  },
+  liveText: {
+    fontSize: 11,
+    color: '#166534',
+    fontWeight: '600',
+    flex: 1,
+  },
+  closeSessionBtn: {
+    backgroundColor: '#DC2626',
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 13,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnOpenSession: {
-    backgroundColor: '#10B981',
-  },
-  btnCloseSession: {
-    backgroundColor: '#EF4444',
-  },
-  btnDisabled: {
-    backgroundColor: '#9CA3AF',
-    opacity: 0.6,
-  },
-  mainActionButtonText: {
+  closeSessionBtnText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+    fontSize: 13,
   },
-  actionHint: {
+  endedNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    padding: 12,
+    borderRadius: theme.borderRadius.md,
+    gap: 6,
+  },
+  endedNoticeText: {
     fontSize: 12,
-    color: '#6B7280',
-    marginTop: 8,
-    textAlign: 'center',
-    lineHeight: 16,
+    color: '#991B1B',
+    fontWeight: '600',
+  },
+  btnIcon: {
+    marginRight: 6,
   },
 });
 

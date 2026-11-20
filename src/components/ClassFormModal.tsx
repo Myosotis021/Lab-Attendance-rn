@@ -9,10 +9,11 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  FlatList,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { ClassItem, UserProfile } from '../types/models';
 import { getStudents } from '../services/classService';
+import { theme } from '../theme';
 
 interface ClassFormModalProps {
   visible: boolean;
@@ -150,7 +151,8 @@ const ClassFormContent: React.FC<FormContentProps> = ({
         <Text style={styles.label}>Mata Praktikum *</Text>
         <TextInput
           style={[styles.input, errors.courseTitle ? styles.inputError : null]}
-          placeholder="Contoh: Pemrograman Perangkat Komputasi"
+          placeholder="Contoh: Pemrograman Perangkat Bergerak"
+          placeholderTextColor={theme.colors.textMuted}
           value={courseTitle}
           onChangeText={(text) => {
             setCourseTitle(text);
@@ -168,7 +170,8 @@ const ClassFormContent: React.FC<FormContentProps> = ({
         <Text style={styles.label}>Kelas Praktikum *</Text>
         <TextInput
           style={[styles.input, errors.classGroup ? styles.inputError : null]}
-          placeholder="Contoh: Kelas A / Praktikum 1"
+          placeholder="Contoh: Kelas A"
+          placeholderTextColor={theme.colors.textMuted}
           value={classGroup}
           onChangeText={(text) => {
             setClassGroup(text);
@@ -186,7 +189,8 @@ const ClassFormContent: React.FC<FormContentProps> = ({
         <Text style={styles.label}>Ruangan Lab *</Text>
         <TextInput
           style={[styles.input, errors.roomName ? styles.inputError : null]}
-          placeholder="Contoh: Lab Komputer 2 (Gedung B)"
+          placeholder="Contoh: Lab Komputer 2"
+          placeholderTextColor={theme.colors.textMuted}
           value={roomName}
           onChangeText={(text) => {
             setRoomName(text);
@@ -201,15 +205,15 @@ const ClassFormContent: React.FC<FormContentProps> = ({
 
       {/* Peserta Praktikan */}
       <View style={styles.fieldContainer}>
-        <View style={styles.sectionHeaderRow}>
+        <View style={styles.studentHeaderRow}>
           <Text style={styles.label}>
             Peserta Praktikan ({participantIds.length} dipilih)
           </Text>
           {availableStudents.length > 0 && (
-            <TouchableOpacity onPress={handleSelectAllStudents} activeOpacity={0.7}>
+            <TouchableOpacity onPress={handleSelectAllStudents}>
               <Text style={styles.selectAllText}>
                 {participantIds.length === availableStudents.length
-                  ? 'Batal Pilih Semua'
+                  ? 'Batal Semua'
                   : 'Pilih Semua'}
               </Text>
             </TouchableOpacity>
@@ -217,66 +221,65 @@ const ClassFormContent: React.FC<FormContentProps> = ({
         </View>
 
         {loadingStudents ? (
-          <ActivityIndicator size="small" color="#2563EB" style={{ marginVertical: 12 }} />
+          <ActivityIndicator size="small" color={theme.colors.textPrimary} style={{ marginVertical: 8 }} />
+        ) : availableStudents.length === 0 ? (
+          <Text style={styles.emptyStudentText}>
+            Belum ada mahasiswa praktikan yang terdaftar.
+          </Text>
         ) : (
-          <View style={styles.studentsListContainer}>
-            <FlatList
-              data={availableStudents}
-              keyExtractor={(item) => item.uid}
-              scrollEnabled={false}
-              renderItem={({ item }) => {
-                const isSelected = participantIds.includes(item.uid);
-                return (
-                  <TouchableOpacity
-                    style={[
-                      styles.studentRow,
-                      isSelected && styles.studentRowSelected,
-                    ]}
-                    onPress={() => toggleStudent(item.uid)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-                      {isSelected && <Text style={styles.checkmark}>✓</Text>}
-                    </View>
-                    <View style={styles.studentInfo}>
-                      <Text style={styles.studentName}>{item.name}</Text>
-                      <Text style={styles.studentNim}>NIM: {item.nim || '-'}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }}
-              ListEmptyComponent={
-                <Text style={styles.emptyStudentsText}>
-                  Tidak ada mahasiswa praktikan terdaftar.
-                </Text>
-              }
-            />
+          <View style={styles.studentList}>
+            {availableStudents.map((student) => {
+              const selected = participantIds.includes(student.uid);
+              return (
+                <TouchableOpacity
+                  key={student.uid}
+                  style={[
+                    styles.studentItem,
+                    selected && styles.studentItemSelected,
+                  ]}
+                  onPress={() => toggleStudent(student.uid)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
+                    {selected && <Feather name="check" size={12} color="#FFFFFF" />}
+                  </View>
+                  <View style={styles.studentInfo}>
+                    <Text style={styles.studentName}>{student.name}</Text>
+                    {student.nim ? (
+                      <Text style={styles.studentNim}>NIM: {student.nim}</Text>
+                    ) : (
+                      <Text style={styles.studentNim}>{student.email}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
       </View>
 
-      {/* Buttons */}
+      {/* Action Buttons */}
       <View style={styles.buttonRow}>
         <TouchableOpacity
-          style={styles.cancelButton}
+          style={styles.cancelBtn}
           onPress={onClose}
           disabled={submitting}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
         >
-          <Text style={styles.cancelButtonText}>Batal</Text>
+          <Text style={styles.cancelBtnText}>Batal</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.submitButton, submitting && styles.buttonDisabled]}
+          style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
           onPress={handleSubmit}
           disabled={submitting}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
           {submitting ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitButtonText}>
-              {initialData ? 'Simpan Perubahan' : 'Buat Kelas'}
+            <Text style={styles.submitBtnText}>
+              {initialData ? 'Simpan Perubahan' : 'Tambah Kelas'}
             </Text>
           )}
         </TouchableOpacity>
@@ -291,19 +294,17 @@ export const ClassFormModal: React.FC<ClassFormModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  if (!visible) return null;
-
   return (
     <Modal
-      transparent
-      animationType="fade"
       visible={visible}
+      transparent
+      animationType="slide"
       onRequestClose={onClose}
     >
       <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.dialogBox} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
           <ClassFormContent
-            key={initialData?.id || 'new_class'}
+            key={initialData ? initialData.id : 'new'}
             initialData={initialData}
             onClose={onClose}
             onSubmit={onSubmit}
@@ -317,183 +318,163 @@ export const ClassFormModal: React.FC<ClassFormModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
   },
-  dialogBox: {
-    width: '94%',
-    maxHeight: '85%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
+    padding: 24,
+    maxHeight: '90%',
+    ...theme.shadows.card,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 20,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 16,
-    lineHeight: 16,
+    color: theme.colors.textSecondary,
+    marginBottom: 18,
+    lineHeight: 18,
   },
   errorAlert: {
     backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: theme.borderRadius.md,
     padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   errorAlertText: {
     color: '#DC2626',
     fontSize: 12,
-    fontWeight: '600',
   },
   fieldContainer: {
     marginBottom: 14,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
     marginBottom: 6,
   },
   input: {
+    backgroundColor: theme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: '#CED4DA',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    minHeight: 48,
-    backgroundColor: '#FAFAFA',
-    color: '#1F2937',
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 13,
+    color: theme.colors.textPrimary,
   },
   inputError: {
     borderColor: '#EF4444',
-    backgroundColor: '#FEF2F2',
   },
   errorText: {
-    color: '#EF4444',
     fontSize: 11,
+    color: '#EF4444',
     marginTop: 4,
-    fontWeight: '500',
   },
-  sectionHeaderRow: {
+  studentHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   selectAllText: {
     fontSize: 12,
-    color: '#2563EB',
-    fontWeight: '600',
+    fontWeight: '700',
+    color: theme.colors.primaryBlue,
   },
-  studentsListContainer: {
-    maxHeight: 240,
+  emptyStudentText: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    fontStyle: 'italic',
+  },
+  studentList: {
+    maxHeight: 160,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    backgroundColor: '#F9FAFB',
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
     padding: 6,
+    backgroundColor: theme.colors.surfaceSubtle,
   },
-  studentRow: {
+  studentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     borderRadius: 6,
-    marginBottom: 4,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
   },
-  studentRowSelected: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
+  studentItemSelected: {
+    backgroundColor: 'rgba(20, 20, 43, 0.05)',
   },
   checkbox: {
     width: 20,
     height: 20,
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: '#9CA3AF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: theme.colors.border,
     marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
   },
   checkboxSelected: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
+    backgroundColor: theme.colors.textPrimary,
+    borderColor: theme.colors.textPrimary,
   },
   studentInfo: {
     flex: 1,
   },
   studentName: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
   },
   studentNim: {
     fontSize: 11,
-    color: '#6B7280',
-    marginTop: 1,
-  },
-  emptyStudentsText: {
-    textAlign: 'center',
-    padding: 12,
-    fontSize: 12,
-    color: '#9CA3AF',
+    color: theme.colors.textMuted,
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
+    gap: 10,
     marginTop: 18,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    marginBottom: 10,
   },
-  cancelButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
-  },
-  cancelButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4B5563',
-  },
-  submitButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: '#2563EB',
-    minWidth: 120,
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     alignItems: 'center',
+    backgroundColor: theme.colors.surfaceSubtle,
   },
-  submitButtonText: {
+  cancelBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: theme.colors.textSecondary,
   },
-  buttonDisabled: {
+  submitBtn: {
+    flex: 2,
+    paddingVertical: 13,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.textPrimary,
+    alignItems: 'center',
+  },
+  submitBtnDisabled: {
     opacity: 0.6,
+  },
+  submitBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });
 

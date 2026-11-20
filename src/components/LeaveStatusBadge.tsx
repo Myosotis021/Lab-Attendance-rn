@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LeaveStatus } from '../types/models';
+import { theme } from '../theme';
 
 interface LeaveStatusBadgeProps {
   status: LeaveStatus;
@@ -13,20 +14,20 @@ export const LeaveStatusBadge: React.FC<LeaveStatusBadgeProps> = ({ status }) =>
         return {
           containerStyle: styles.acceptedContainer,
           textStyle: styles.acceptedText,
-          label: 'Diterima',
+          label: 'DITERIMA',
         };
       case 'DITOLAK':
         return {
           containerStyle: styles.rejectedContainer,
           textStyle: styles.rejectedText,
-          label: 'Ditolak',
+          label: 'DITOLAK',
         };
       case 'MENUNGGU':
       default:
         return {
           containerStyle: styles.pendingContainer,
           textStyle: styles.pendingText,
-          label: 'Menunggu',
+          label: 'MENUNGGU',
         };
     }
   };
@@ -44,38 +45,36 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.full,
     alignSelf: 'flex-start',
+    borderWidth: 1,
   },
   text: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   pendingContainer: {
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
+    backgroundColor: theme.colors.status.pending.bg,
+    borderColor: theme.colors.status.pending.border,
   },
   pendingText: {
-    color: '#D97706',
+    color: theme.colors.status.pending.text,
   },
   acceptedContainer: {
-    backgroundColor: '#DCFCE7',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
+    backgroundColor: theme.colors.status.accepted.bg,
+    borderColor: theme.colors.status.accepted.border,
   },
   acceptedText: {
-    color: '#16A34A',
+    color: theme.colors.status.accepted.text,
   },
   rejectedContainer: {
-    backgroundColor: '#FEE2E2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
+    backgroundColor: theme.colors.status.rejected.bg,
+    borderColor: theme.colors.status.rejected.border,
   },
   rejectedText: {
-    color: '#DC2626',
+    color: theme.colors.status.rejected.text,
   },
 });
 
 export default LeaveStatusBadge;
-

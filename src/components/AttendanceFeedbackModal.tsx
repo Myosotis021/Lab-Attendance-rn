@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   Pressable,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { AttendanceRecord, AttendanceStatus } from '../types';
 import { formatAttendanceTime } from '../services/attendanceService';
+import { theme } from '../theme';
 
 interface AttendanceFeedbackModalProps {
   visible: boolean;
@@ -20,30 +22,30 @@ const getStatusBadgeStyle = (status: AttendanceStatus) => {
   switch (status) {
     case 'Hadir':
       return {
-        bg: '#DCFCE7',
-        text: '#15803D',
-        border: '#86EFAC',
+        bg: theme.colors.status.hadir.bg,
+        text: theme.colors.status.hadir.text,
+        border: theme.colors.status.hadir.border,
         label: 'HADIR',
       };
     case 'Izin':
       return {
-        bg: '#FEF3C7',
-        text: '#B45309',
-        border: '#FCD34D',
+        bg: theme.colors.status.izin.bg,
+        text: theme.colors.status.izin.text,
+        border: theme.colors.status.izin.border,
         label: 'IZIN',
       };
     case 'Sakit':
       return {
-        bg: '#DBEAFE',
-        text: '#1D4ED8',
-        border: '#93C5FD',
+        bg: theme.colors.status.sakit.bg,
+        text: theme.colors.status.sakit.text,
+        border: theme.colors.status.sakit.border,
         label: 'SAKIT',
       };
     default:
       return {
-        bg: '#F3F4F6',
-        text: '#4B5563',
-        border: '#E5E7EB',
+        bg: theme.colors.surfaceSubtle,
+        text: theme.colors.textSecondary,
+        border: theme.colors.border,
         label: status,
       };
   }
@@ -71,79 +73,86 @@ export const AttendanceFeedbackModal: React.FC<AttendanceFeedbackModalProps> = (
           style={styles.modalCard}
           onPress={(e) => e.stopPropagation()}
         >
-          {/* Big Green Success Checkmark Icon */}
+          {/* Success Checkmark Icon */}
           <View style={styles.iconContainer}>
             <View style={styles.iconInner}>
-              <Text style={styles.checkmarkIcon}>✓</Text>
+              <Feather name="check" size={28} color="#FFFFFF" />
             </View>
           </View>
 
-          {/* Title & Subtitle */}
-          <Text style={styles.title}>Presensi Berhasil Dicatat!</Text>
-          <Text style={styles.subtitle}>
-            Data kehadiran Anda telah berhasil direkam oleh sistem secara real-time.
+          {/* Heading */}
+          <Text style={styles.modalTitle}>Presensi Berhasil Dicatat!</Text>
+          <Text style={styles.modalSubtitle}>
+            Data kehadiran Anda telah tersimpan secara real-time di sistem laboratorium.
           </Text>
 
-          {/* Summary Box */}
-          <View style={styles.summaryContainer}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Nama Praktikan</Text>
-              <Text style={styles.summaryValue}>{attendanceData.studentName}</Text>
-            </View>
+          {/* SRS Sentence Callout */}
+          <View style={styles.statusCallout}>
+            <Text style={styles.calloutText}>
+              Anda telah berhasil presensi pada{' '}
+              <Text style={styles.calloutBold}>
+                {attendanceData.timestamp ||
+                  formatAttendanceTime(attendanceData.createdAt)}
+              </Text>{' '}
+              - Status:{' '}
+              <Text style={[styles.calloutBold, { color: badgeStyle.text }]}>
+                [{attendanceData.status}]
+              </Text>
+            </Text>
+          </View>
 
-            <View style={styles.divider} />
-
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>NIM Mahasiswa</Text>
-              <Text style={styles.summaryValueBold}>{attendanceData.studentNim}</Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Waktu Presensi</Text>
-              <Text style={styles.summaryValueHighlight}>
-                {attendanceData.timestamp || formatAttendanceTime(attendanceData.createdAt)}
+          {/* Details Table */}
+          <View style={styles.tableContainer}>
+            <View style={styles.tableRow}>
+              <Text style={styles.rowLabel}>Waktu Presensi</Text>
+              <Text style={styles.rowValue}>
+                {attendanceData.timestamp ||
+                  formatAttendanceTime(attendanceData.createdAt)}
               </Text>
             </View>
-
             <View style={styles.divider} />
 
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Status Kehadiran</Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  {
-                    backgroundColor: badgeStyle.bg,
-                    borderColor: badgeStyle.border,
-                  },
-                ]}
-              >
-                <Text style={[styles.statusBadgeText, { color: badgeStyle.text }]}>
-                  {badgeStyle.label}
-                </Text>
-              </View>
+            <View style={styles.tableRow}>
+              <Text style={styles.rowLabel}>Nama Mahasiswa</Text>
+              <Text style={styles.rowValue}>{attendanceData.studentName}</Text>
             </View>
+            <View style={styles.divider} />
+
+            {attendanceData.studentNim ? (
+              <>
+                <View style={styles.tableRow}>
+                  <Text style={styles.rowLabel}>NIM</Text>
+                  <Text style={styles.rowValue}>{attendanceData.studentNim}</Text>
+                </View>
+                <View style={styles.divider} />
+              </>
+            ) : null}
 
             {attendanceData.notes ? (
               <>
-                <View style={styles.divider} />
-                <View style={styles.summaryRowNotes}>
-                  <Text style={styles.summaryLabel}>Catatan Tambahan</Text>
-                  <Text style={styles.notesText}>{attendanceData.notes}</Text>
+                <View style={styles.tableRow}>
+                  <Text style={styles.rowLabel}>Nomor Meja Lab</Text>
+                  <Text style={styles.rowValue}>{attendanceData.notes}</Text>
                 </View>
+                <View style={styles.divider} />
               </>
             ) : null}
+
+            <View style={styles.tableRow}>
+              <Text style={styles.rowLabel}>ID Presensi</Text>
+              <Text style={styles.rowValueMono} numberOfLines={1}>
+                {attendanceData.id}
+              </Text>
+            </View>
           </View>
 
-          {/* Close Action Button */}
+          {/* Close Button */}
           <TouchableOpacity
             style={styles.closeButton}
             onPress={onClose}
             activeOpacity={0.85}
           >
-            <Text style={styles.closeButtonText}>Selesai / Tutup</Text>
+            <Text style={styles.closeButtonText}>Tutup & Kembali</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>
@@ -154,146 +163,110 @@ export const AttendanceFeedbackModal: React.FC<AttendanceFeedbackModalProps> = (
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   modalCard: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xxl,
     padding: 24,
+    width: '100%',
+    maxWidth: 390,
     alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    ...theme.shadows.card,
   },
   iconContainer: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: '#DCFCE7',
-    borderWidth: 4,
-    borderColor: '#F0FDF4',
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: 16,
   },
   iconInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#16A34A',
-    justifyContent: 'center',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#166534',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  checkmarkIcon: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '900',
-    lineHeight: 36,
-  },
-  title: {
+  modalTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#111827',
+    color: theme.colors.textPrimary,
     textAlign: 'center',
     marginBottom: 6,
   },
-  subtitle: {
-    fontSize: 13,
-    color: '#6B7280',
+  modalSubtitle: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
-    marginBottom: 20,
-    paddingHorizontal: 8,
+    marginBottom: 18,
   },
-  summaryContainer: {
+  statusCallout: {
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderRadius: theme.borderRadius.md,
+    padding: 12,
     width: '100%',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#166534',
+  },
+  calloutText: {
+    fontSize: 13,
+    color: theme.colors.textPrimary,
+    lineHeight: 19,
+  },
+  calloutBold: {
+    fontWeight: '700',
+  },
+  tableContainer: {
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    width: '100%',
     marginBottom: 20,
   },
-  summaryRow: {
+  tableRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 8,
   },
-  summaryRowNotes: {
-    paddingVertical: 8,
-  },
-  summaryLabel: {
-    fontSize: 13,
-    color: '#64748B',
+  rowLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
     fontWeight: '500',
   },
-  summaryValue: {
-    fontSize: 13,
-    color: '#1E293B',
-    fontWeight: '600',
-  },
-  summaryValueBold: {
-    fontSize: 13,
-    color: '#0F172A',
-    fontWeight: '700',
-    fontFamily: 'monospace',
-  },
-  summaryValueHighlight: {
-    fontSize: 13,
-    color: '#0369A1',
-    fontWeight: '700',
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  statusBadgeText: {
+  rowValue: {
     fontSize: 12,
     fontWeight: '700',
+    color: theme.colors.textPrimary,
+    maxWidth: '55%',
+    textAlign: 'right',
   },
-  notesText: {
-    fontSize: 13,
-    color: '#334155',
-    fontStyle: 'italic',
-    marginTop: 4,
-    backgroundColor: '#FFFFFF',
-    padding: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  rowValueMono: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    fontFamily: 'monospace',
+    maxWidth: '55%',
   },
   divider: {
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.colors.borderLight,
   },
   closeButton: {
-    width: '100%',
-    backgroundColor: '#16A34A',
+    backgroundColor: theme.colors.textPrimary,
+    borderRadius: theme.borderRadius.md,
     paddingVertical: 14,
-    borderRadius: 12,
+    width: '100%',
     alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 2,
-    shadowColor: '#16A34A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...theme.shadows.subtle,
   },
   closeButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });
 

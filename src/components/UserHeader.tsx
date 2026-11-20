@@ -6,8 +6,10 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { UserProfile } from '../types/models';
+import { theme } from '../theme';
 
 export interface UserHeaderProps {
   profile?: UserProfile | null;
@@ -37,15 +39,6 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
   }
 
   const isAsisten = profile.role === 'asisten';
-
-  const getInitials = (name: string) => {
-    if (!name) return 'U';
-    const parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-  };
 
   const handleToggle = () => {
     if (onSwitchRole) {
@@ -78,182 +71,135 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
     );
   };
 
+  const roleLabel = isAsisten ? 'Asisten Lab' : 'Praktikan';
+
   return (
-    <View style={styles.container}>
-      <View style={styles.leftRow}>
-        <View
-          style={[
-            styles.avatar,
-            isAsisten ? styles.avatarAsisten : styles.avatarPraktikan,
-          ]}
-        >
-          <Text style={styles.avatarText}>{getInitials(profile.name)}</Text>
-        </View>
-        <View style={styles.infoCol}>
-          <Text style={styles.userName} numberOfLines={1}>
-            {profile.name}
-          </Text>
-          <Text style={styles.userSubtitle}>
-            {isAsisten
-              ? profile.identifier
-                ? `ID: ${profile.identifier}`
-                : 'Asisten Laboratorium'
-              : profile.nim
-              ? `NIM: ${profile.nim}`
-              : profile.identifier
-              ? `ID: ${profile.identifier}`
-              : profile.email || 'Praktikan'}
-          </Text>
+    <View style={styles.headerCard}>
+      {/* Left Icon Button: Menu / User */}
+      <View style={styles.iconButton}>
+        <Feather name="menu" size={20} color={theme.colors.textPrimary} />
+      </View>
+
+      {/* Center Greeting & Role */}
+      <View style={styles.centerGreeting}>
+        <Text style={styles.greetingTitle} numberOfLines={1}>
+          Halo, {profile.name}
+        </Text>
+        <View style={styles.roleSubRow}>
+          <Text style={styles.roleSubText}>{roleLabel}</Text>
+          {profile.nim ? (
+            <Text style={styles.nimText}> • {profile.nim}</Text>
+          ) : profile.identifier ? (
+            <Text style={styles.nimText}> • ID: {profile.identifier}</Text>
+          ) : null}
         </View>
       </View>
 
-      <View style={styles.rightRow}>
-        <View
-          style={[
-            styles.roleBadge,
-            isAsisten ? styles.badgeAsisten : styles.badgePraktikan,
-          ]}
-        >
-          <Text
-            style={[
-              styles.roleBadgeText,
-              isAsisten ? styles.badgeTextAsisten : styles.badgeTextPraktikan,
-            ]}
-          >
-            {isAsisten ? 'ASISTEN' : 'PRAKTIKAN'}
-          </Text>
-        </View>
-
+      {/* Right Controls: Switch role and Logout buttons */}
+      <View style={styles.rightActions}>
         {onSwitchRole ? (
           <TouchableOpacity
-            style={styles.switchButton}
+            style={styles.switchPill}
             onPress={handleToggle}
             activeOpacity={0.7}
+            accessibilityLabel="Ganti Peran"
           >
-            <Text style={styles.switchButtonText}>Ganti Peran</Text>
+            <Feather name="repeat" size={13} color={theme.colors.textPrimary} />
+            <Text style={styles.switchPillText}>Peran</Text>
           </TouchableOpacity>
         ) : null}
 
         {onLogout || contextLogout ? (
           <TouchableOpacity
-            style={styles.logoutButton}
+            style={styles.iconButton}
             onPress={handleLogoutPress}
             activeOpacity={0.7}
+            accessibilityLabel="Keluar"
           >
-            <Text style={styles.logoutButtonText}>Keluar</Text>
+            <Feather name="log-out" size={18} color="#EF4444" />
           </TouchableOpacity>
-        ) : null}
+        ) : (
+          <View style={styles.iconButton}>
+            <Feather name="calendar" size={18} color={theme.colors.textPrimary} />
+          </View>
+        )}
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 16,
+  headerCard: {
+    backgroundColor: theme.colors.surface,
+    borderBottomLeftRadius: theme.borderRadius.xxl,
+    borderBottomRightRadius: theme.borderRadius.xxl,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 18,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    ...theme.shadows.header,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.04)',
+    marginBottom: 16,
   },
-  leftRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatar: {
+  iconButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
     alignItems: 'center',
-    marginRight: 12,
+    justifyContent: 'center',
   },
-  avatarAsisten: {
-    backgroundColor: '#3B82F6',
-  },
-  avatarPraktikan: {
-    backgroundColor: '#10B981',
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  infoCol: {
+  centerGreeting: {
     flex: 1,
+    paddingHorizontal: 12,
   },
-  userName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1F2937',
+  greetingTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.3,
   },
-  userSubtitle: {
-    fontSize: 12,
-    color: '#6B7280',
+  roleSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 2,
   },
-  rightRow: {
-    alignItems: 'flex-end',
-    marginLeft: 8,
+  roleSubText: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    fontWeight: '600',
+    textTransform: 'capitalize',
   },
-  roleBadge: {
+  nimText: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    fontWeight: '500',
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  switchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 4,
-  },
-  badgeAsisten: {
-    backgroundColor: '#EFF6FF',
+    paddingVertical: 7,
+    borderRadius: theme.borderRadius.md,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSubtle,
   },
-  badgePraktikan: {
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-  },
-  roleBadgeText: {
+  switchPillText: {
     fontSize: 11,
     fontWeight: '700',
-  },
-  badgeTextAsisten: {
-    color: '#1D4ED8',
-  },
-  badgeTextPraktikan: {
-    color: '#047857',
-  },
-  switchButton: {
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-  },
-  switchButtonText: {
-    fontSize: 11,
-    color: '#2563EB',
-    textDecorationLine: 'underline',
-  },
-  logoutButton: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    marginTop: 4,
-  },
-  logoutButtonText: {
-    color: '#B91C1C',
-    fontSize: 11,
-    fontWeight: '700',
+    color: theme.colors.textPrimary,
   },
 });
 

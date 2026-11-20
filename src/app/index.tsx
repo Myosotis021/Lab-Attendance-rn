@@ -10,10 +10,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Stack, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { ScheduleListScreen } from '../screens/ScheduleListScreen';
 import { RoleType, SessionItem } from '../types/models';
+import { theme } from '../theme';
 
 export default function Index() {
   const router = useRouter();
@@ -52,56 +55,73 @@ export default function Index() {
   // ── Loading splash ──────────────────────────────────────────────
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer} edges={['top', 'left', 'right', 'bottom']}>
-        <ActivityIndicator size="large" color="#2563EB" />
-        <Text style={styles.loadingText}>Memuat…</Text>
-      </SafeAreaView>
+      <LinearGradient
+        colors={theme.colors.backgroundGradient}
+        style={styles.flexOne}
+      >
+        <SafeAreaView style={styles.loadingContainer} edges={['top', 'bottom']}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color={theme.colors.textPrimary} />
+            <Text style={styles.loadingText}>Memuat sistem...</Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   // ── Belum login ─────────────────────────────────────────────────
   if (!profile) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <StatusBar style="dark" />
-        <OfflineBanner />
-        <ScrollView contentContainerStyle={styles.authContainer}>
-          <View style={styles.authHeader}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoEmoji}>🔬</Text>
+      <LinearGradient
+        colors={theme.colors.backgroundGradient}
+        style={styles.flexOne}
+      >
+        <SafeAreaView style={styles.flexOne} edges={['top', 'bottom']}>
+          <Stack.Screen options={{ headerShown: false }} />
+          <StatusBar style="dark" />
+          <OfflineBanner />
+          <ScrollView
+            contentContainerStyle={styles.authContainer}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.authHeader}>
+              <View style={styles.logoCircle}>
+                <Text style={styles.logoEmoji}>🔬</Text>
+              </View>
+              <Text style={styles.appName}>Lab Attendance</Text>
+              <Text style={styles.appTagline}>
+                Sistem Presensi Praktikum Laboratorium
+              </Text>
             </View>
-            <Text style={styles.appName}>Lab Attendance</Text>
-            <Text style={styles.appTagline}>
-              Sistem Presensi Praktikum Laboratorium
-            </Text>
-          </View>
 
-          <View style={styles.authCard}>
-            <Text style={styles.authCardTitle}>Selamat Datang!</Text>
-            <Text style={styles.authCardDesc}>
-              Silakan masuk atau daftar akun baru untuk menggunakan aplikasi
-              presensi praktikum.
-            </Text>
+            <View style={styles.authCard}>
+              <Text style={styles.authCardTitle}>Selamat Datang!</Text>
+              <Text style={styles.authCardDesc}>
+                Silakan masuk atau daftar akun baru untuk menggunakan aplikasi
+                presensi praktikum.
+              </Text>
 
-            <TouchableOpacity
-              style={styles.loginButton}
-              onPress={() => router.push('/login' as any)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.loginButtonText}>🔑  Masuk ke Akun</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.loginButton}
+                onPress={() => router.push('/login' as any)}
+                activeOpacity={0.85}
+              >
+                <Feather name="log-in" size={17} color="#FFFFFF" style={styles.buttonIcon} />
+                <Text style={styles.loginButtonText}>Masuk ke Akun</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.registerButton}
-              onPress={() => router.push('/register' as any)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.registerButtonText}>📝  Daftar Akun Baru</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+              <TouchableOpacity
+                style={styles.registerButton}
+                onPress={() => router.push('/register' as any)}
+                activeOpacity={0.85}
+              >
+                <Feather name="user-plus" size={16} color={theme.colors.textPrimary} style={styles.buttonIcon} />
+                <Text style={styles.registerButtonText}>Daftar Akun Baru</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
@@ -117,26 +137,27 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
+  flexOne: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+  },
+  loadingCard: {
+    backgroundColor: theme.colors.surface,
+    padding: 24,
+    borderRadius: theme.borderRadius.xl,
+    alignItems: 'center',
     gap: 12,
+    ...theme.shadows.card,
   },
   loadingText: {
-    fontSize: 14,
-    color: '#64748B',
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
   },
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  flexOne: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  // ── Auth (belum login) ──
   authContainer: {
     flexGrow: 1,
     padding: 24,
@@ -147,80 +168,79 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#DBEAFE',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: theme.colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 14,
+    ...theme.shadows.card,
   },
   logoEmoji: {
     fontSize: 36,
   },
   appName: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
-    color: '#0F172A',
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.5,
   },
   appTagline: {
     fontSize: 13,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     marginTop: 4,
   },
   authCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xxl,
+    padding: 24,
+    ...theme.shadows.card,
   },
   authCardTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: theme.colors.textPrimary,
     marginBottom: 6,
   },
   authCardDesc: {
     fontSize: 13,
-    color: '#64748B',
-    lineHeight: 20,
-    marginBottom: 20,
+    color: theme.colors.textSecondary,
+    lineHeight: 19,
+    marginBottom: 24,
   },
   loginButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.colors.textPrimary,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: theme.borderRadius.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
     marginBottom: 10,
-    elevation: 2,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...theme.shadows.subtle,
   },
   loginButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   registerButton: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: theme.colors.border,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: theme.borderRadius.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   registerButtonText: {
-    color: '#1E293B',
-    fontSize: 15,
+    color: theme.colors.textPrimary,
+    fontSize: 14,
     fontWeight: '700',
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
 });

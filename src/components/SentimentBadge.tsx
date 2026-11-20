@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SentimentResult } from '../types/models';
+import { theme } from '../theme';
 
 interface SentimentBadgeProps {
   sentiment?: SentimentResult | null;
@@ -16,7 +17,7 @@ export const SentimentBadge: React.FC<SentimentBadgeProps> = ({
       return {
         containerStyle: styles.unclassifiedContainer,
         textStyle: styles.unclassifiedText,
-        label: 'Belum dapat diklasifikasikan',
+        label: 'Belum diklasifikasikan',
       };
     }
 
@@ -69,11 +70,12 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: theme.borderRadius.full,
     alignSelf: 'flex-start',
     gap: 6,
+    borderWidth: 1,
   },
   dot: {
     width: 6,
@@ -82,19 +84,17 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   positiveContainer: {
     backgroundColor: '#DCFCE7',
-    borderWidth: 1,
-    borderColor: '#86EFAC',
+    borderColor: '#BBF7D0',
   },
   positiveText: {
-    color: '#15803D',
+    color: '#166534',
   },
   neutralContainer: {
     backgroundColor: '#F3F4F6',
-    borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   neutralText: {
@@ -102,15 +102,13 @@ const styles = StyleSheet.create({
   },
   negativeContainer: {
     backgroundColor: '#FEE2E2',
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
+    borderColor: '#FECACA',
   },
   negativeText: {
-    color: '#B91C1C',
+    color: '#991B1B',
   },
   unclassifiedContainer: {
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
+    backgroundColor: '#F9FAFB',
     borderColor: '#E5E7EB',
   },
   unclassifiedText: {
@@ -118,12 +116,9 @@ const styles = StyleSheet.create({
   },
   disclaimer: {
     fontSize: 10,
-    color: '#6B7280',
+    color: theme.colors.textMuted,
     fontStyle: 'italic',
-    marginTop: 2,
-    lineHeight: 14,
   },
 });
 
 export default SentimentBadge;
-

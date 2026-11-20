@@ -9,16 +9,22 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import useAuth from '../hooks/useAuth';
 import useAllLeaveRequests from '../hooks/useAllLeaveRequests';
 import { decideLeaveRequest } from '../services/leaveService';
 import { LeaveRequest } from '../types/models';
 import LeaveRequestCard from '../components/LeaveRequestCard';
-import UserHeader from '../components/UserHeader';
 import ConfirmModal from '../components/ConfirmModal';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
 import { getErrorMessage } from '../utils/errors';
+import { theme } from '../theme';
 
 interface AssistantLeaveReviewScreenProps {
   onBack?: () => void;
@@ -27,6 +33,7 @@ interface AssistantLeaveReviewScreenProps {
 export const AssistantLeaveReviewScreen: React.FC<AssistantLeaveReviewScreenProps> = ({
   onBack,
 }) => {
+  const router = useRouter();
   const { profile } = useAuth();
   const { requests, loading, error, retry } = useAllLeaveRequests();
 
@@ -41,16 +48,28 @@ export const AssistantLeaveReviewScreen: React.FC<AssistantLeaveReviewScreenProp
   const [isDeciding, setIsDeciding] = useState<boolean>(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
   if (profile?.role !== 'asisten') {
     return (
-      <View style={styles.container}>
-        <ErrorState
-          title="Akses Ditolak"
-          message="Anda tidak memiliki izin untuk mengakses halaman ini. Halaman ini khusus untuk Asisten Laboratorium."
-          onRetry={onBack}
-          retryText="Kembali"
-        />
-      </View>
+      <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+        <SafeAreaView style={styles.safeArea}>
+          <ErrorState
+            title="Akses Ditolak"
+            message="Anda tidak memiliki izin untuk mengakses halaman ini. Halaman ini khusus untuk Asisten Laboratorium."
+            onRetry={handleBack}
+            retryText="Kembali"
+          />
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
@@ -116,7 +135,7 @@ export const AssistantLeaveReviewScreen: React.FC<AssistantLeaveReviewScreenProp
         <TextInput
           style={styles.noteInput}
           placeholder="Tulis catatan atau alasan keputusan..."
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={theme.colors.textMuted}
           value={currentNote}
           onChangeText={(txt) => handleNoteChange(item.id, txt)}
         />
@@ -127,7 +146,8 @@ export const AssistantLeaveReviewScreen: React.FC<AssistantLeaveReviewScreenProp
             disabled={isDeciding}
             activeOpacity={0.8}
           >
-            <Text style={styles.rejectButtonText}>✕ Tolak</Text>
+            <Feather name="x" size={14} color="#DC2626" style={styles.btnIcon} />
+            <Text style={styles.rejectButtonText}>Tolak</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.acceptButton, isDeciding && styles.buttonDisabled]}
@@ -135,7 +155,8 @@ export const AssistantLeaveReviewScreen: React.FC<AssistantLeaveReviewScreenProp
             disabled={isDeciding}
             activeOpacity={0.8}
           >
-            <Text style={styles.acceptButtonText}>✓ Terima</Text>
+            <Feather name="check" size={14} color="#FFFFFF" style={styles.btnIcon} />
+            <Text style={styles.acceptButtonText}>Terima</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -143,283 +164,296 @@ export const AssistantLeaveReviewScreen: React.FC<AssistantLeaveReviewScreenProp
   };
 
   return (
-    <View style={styles.container}>
-      {/* Top Header */}
-      <View style={styles.headerRow}>
-        {onBack && (
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Kembali</Text>
+    <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <StatusBar style="dark" />
+
+        {/* Top Header */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBack}
+            activeOpacity={0.7}
+          >
+            <Feather name="arrow-left" size={20} color={theme.colors.textPrimary} />
           </TouchableOpacity>
-        )}
-        <Text style={styles.pageTitle}>Review Izin Praktikan</Text>
-      </View>
 
-      {/* User Header */}
-      <UserHeader profile={profile} />
-
-      {/* Filter Tabs (SRS-15: Menunggu (default) & Semua) */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tabPill, activeTab === 'MENUNGGU' && styles.tabPillActive]}
-          onPress={() => setActiveTab('MENUNGGU')}
-          activeOpacity={0.8}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'MENUNGGU' && styles.tabTextActive,
-            ]}
-          >
-            Menunggu ({requests.filter((r) => r.status === 'MENUNGGU').length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabPill, activeTab === 'SEMUA' && styles.tabPillActive]}
-          onPress={() => setActiveTab('SEMUA')}
-          activeOpacity={0.8}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'SEMUA' && styles.tabTextActive,
-            ]}
-          >
-            Semua ({requests.length})
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {actionError && (
-        <View style={styles.actionErrorBox}>
-          <Text style={styles.actionErrorText}>{actionError}</Text>
-        </View>
-      )}
-
-      {/* Content Area */}
-      {loading && requests.length === 0 ? (
-        <LoadingState message="Memuat daftar pengajuan izin praktikan..." />
-      ) : error ? (
-        <ErrorState message={error} onRetry={retry} retryText="Coba Lagi" />
-      ) : filteredRequests.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconCircle}>
-            <Text style={styles.emptyIconText}>
-              {activeTab === 'MENUNGGU' ? '🎉' : '📋'}
-            </Text>
+          <View style={styles.headerTitleGroup}>
+            <Text style={styles.screenTitle}>Review Izin</Text>
+            <Text style={styles.screenSubtitle}>Pengajuan Ketidakhadiran Praktikan</Text>
           </View>
-          <Text style={styles.emptyTitle}>
-            {activeTab === 'MENUNGGU'
-              ? 'Tidak ada pengajuan yang menunggu'
-              : 'Belum ada pengajuan izin'}
-          </Text>
-          <Text style={styles.emptySubtitle}>
-            {activeTab === 'MENUNGGU'
-              ? 'Seluruh permohonan izin praktikan telah selesai diproses.'
-              : 'Belum ada praktikan yang mengirim pengajuan izin praktikum.'}
-          </Text>
         </View>
-      ) : (
-        <FlatList
-          data={filteredRequests}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <LeaveRequestCard
-              item={item}
-              showStudentInfo={true}
-              actions={renderCardActions(item)}
-            />
-          )}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={retry}
-              colors={['#2563EB']}
-            />
-          }
-        />
-      )}
 
-      {/* Decision Confirmation Modal (Sprint 1 ConfirmModal) */}
-      <ConfirmModal
-        visible={confirmModalVisible}
-        title={
-          pendingDecision === 'DITERIMA'
-            ? 'Terima Pengajuan Izin?'
-            : 'Tolak Pengajuan Izin?'
-        }
-        message={
-          selectedRequest
-            ? pendingDecision === 'DITERIMA'
-              ? `Pengajuan izin dari ${selectedRequest.studentName} (${selectedRequest.courseTitle}) akan diterima.`
-              : `Pengajuan izin dari ${selectedRequest.studentName} (${selectedRequest.courseTitle}) akan ditolak.`
-            : ''
-        }
-        confirmText={
-          pendingDecision === 'DITERIMA' ? 'Ya, Terima Izin' : 'Ya, Tolak Izin'
-        }
-        cancelText="Batal"
-        confirmVariant={pendingDecision === 'DITERIMA' ? 'success' : 'danger'}
-        onConfirm={handleConfirmDecision}
-        onCancel={() => {
-          if (!isDeciding) {
-            setConfirmModalVisible(false);
-            setSelectedRequest(null);
-            setPendingDecision(null);
+        {/* Tab Filter Chips */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[
+              styles.pillTab,
+              activeTab === 'MENUNGGU' && styles.pillTabActive,
+            ]}
+            onPress={() => setActiveTab('MENUNGGU')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.pillTabText,
+                activeTab === 'MENUNGGU' && styles.pillTabTextActive,
+              ]}
+            >
+              Menunggu Review
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.pillTab,
+              activeTab === 'SEMUA' && styles.pillTabActive,
+            ]}
+            onPress={() => setActiveTab('SEMUA')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.pillTabText,
+                activeTab === 'SEMUA' && styles.pillTabTextActive,
+              ]}
+            >
+              Semua Riwayat
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Error banner if action failed */}
+        {actionError ? (
+          <View style={styles.errorBannerWrap}>
+            <Text style={styles.errorBannerText}>{actionError}</Text>
+          </View>
+        ) : null}
+
+        {/* Main List */}
+        {loading && requests.length === 0 ? (
+          <LoadingState message="Memuat pengajuan izin praktikan..." />
+        ) : error ? (
+          <ErrorState message={error} onRetry={retry} retryText="Coba Lagi" />
+        ) : filteredRequests.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <EmptyState
+              message={
+                activeTab === 'MENUNGGU'
+                  ? 'Tidak Ada Pengajuan Menunggu'
+                  : 'Belum Ada Pengajuan Izin'
+              }
+              description={
+                activeTab === 'MENUNGGU'
+                  ? 'Semua permohonan izin praktikan telah diputuskan atau belum ada yang diajukan.'
+                  : 'Belum ada data pengajuan izin dari praktikan di laboratorium.'
+              }
+            />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredRequests}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <LeaveRequestCard
+                item={item}
+                showStudentInfo={true}
+                actions={renderCardActions(item)}
+              />
+            )}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={retry}
+                colors={[theme.colors.textPrimary]}
+              />
+            }
+          />
+        )}
+
+        {/* Decision Confirmation Modal */}
+        <ConfirmModal
+          visible={confirmModalVisible}
+          title={
+            pendingDecision === 'DITERIMA'
+              ? 'Terima Pengajuan Izin?'
+              : 'Tolak Pengajuan Izin?'
           }
-        }}
-      />
-    </View>
+          message={
+            selectedRequest
+              ? `${
+                  pendingDecision === 'DITERIMA'
+                    ? 'Anda akan menyetujui izin untuk:'
+                    : 'Anda akan menolak izin untuk:'
+                } ${selectedRequest.studentName} (${selectedRequest.courseTitle})`
+              : ''
+          }
+          confirmText={
+            pendingDecision === 'DITERIMA' ? 'Ya, Terima' : 'Ya, Tolak'
+          }
+          confirmVariant={pendingDecision === 'DITERIMA' ? 'primary' : 'danger'}
+          onConfirm={handleConfirmDecision}
+          onCancel={() => {
+            if (!isDeciding) {
+              setConfirmModalVisible(false);
+              setSelectedRequest(null);
+              setPendingDecision(null);
+            }
+          }}
+        />
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  flexOne: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
-    padding: 16,
   },
-  headerRow: {
-    marginBottom: 12,
+  safeArea: {
+    flex: 1,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   backButton: {
-    paddingVertical: 6,
-    marginBottom: 6,
+    width: 44,
+    height: 44,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.subtle,
   },
-  backButtonText: {
-    color: '#2563EB',
-    fontSize: 14,
-    fontWeight: '600',
+  headerTitleGroup: {
+    marginLeft: 14,
+    flex: 1,
   },
-  pageTitle: {
+  screenTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#111827',
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  screenSubtitle: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 1,
   },
   tabContainer: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  tabPill: {
-    paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#E5E7EB',
+    paddingBottom: 14,
+    gap: 8,
   },
-  tabPillActive: {
-    backgroundColor: '#2563EB',
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4B5563',
-  },
-  tabTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  actionErrorBox: {
-    backgroundColor: '#FEE2E2',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
+  pillTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: theme.borderRadius.full,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: '#D1D5DB',
+    backgroundColor: 'transparent',
   },
-  actionErrorText: {
-    color: '#DC2626',
+  pillTabActive: {
+    borderColor: theme.colors.textPrimary,
+    backgroundColor: 'rgba(20, 20, 43, 0.04)',
+  },
+  pillTabText: {
     fontSize: 13,
+    color: theme.colors.textSecondary,
     fontWeight: '600',
+  },
+  pillTabTextActive: {
+    color: theme.colors.textPrimary,
+    fontWeight: '800',
   },
   listContent: {
-    paddingBottom: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+  },
+  emptyWrap: {
+    paddingHorizontal: 16,
+  },
+  errorBannerWrap: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: theme.borderRadius.md,
+    padding: 10,
+  },
+  errorBannerText: {
+    color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '600',
   },
   actionBlock: {
     gap: 8,
   },
   noteLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#4B5563',
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
   },
   noteInput: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: theme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     fontSize: 13,
-    color: '#1F2937',
+    color: theme.colors.textPrimary,
   },
   decisionButtonsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     marginTop: 4,
   },
   rejectButton: {
     flex: 1,
-    backgroundColor: '#DC2626',
-    paddingVertical: 10,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    paddingVertical: 10,
+    borderRadius: theme.borderRadius.md,
   },
   rejectButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: '#DC2626',
     fontWeight: '700',
+    fontSize: 13,
   },
   acceptButton: {
     flex: 1,
-    backgroundColor: '#16A34A',
-    paddingVertical: 10,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: theme.colors.textPrimary,
+    paddingVertical: 10,
+    borderRadius: theme.borderRadius.md,
   },
   acceptButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
     fontWeight: '700',
+    fontSize: 13,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    marginTop: 40,
-  },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  emptyIconText: {
-    fontSize: 32,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 20,
+  btnIcon: {
+    marginRight: 4,
   },
 });
 

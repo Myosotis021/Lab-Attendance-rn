@@ -8,7 +8,10 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { SessionItem, SessionStatus } from '../types/models';
 import {
   createSession,
@@ -23,6 +26,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { SessionFormModal } from '../components/SessionFormModal';
 import { getErrorMessage } from '../utils/getErrorMessage';
+import { theme } from '../theme';
 
 const STATUS_CONFIG: Record<
   SessionStatus,
@@ -30,21 +34,21 @@ const STATUS_CONFIG: Record<
 > = {
   BELUM_DIBUKA: {
     label: 'BELUM DIBUKA',
-    bg: '#FEF3C7',
-    text: '#D97706',
-    border: '#FDE68A',
+    bg: theme.colors.status.belumDibuka.bg,
+    text: theme.colors.status.belumDibuka.text,
+    border: theme.colors.status.belumDibuka.border,
   },
   BERJALAN: {
     label: 'BERJALAN',
-    bg: '#DCFCE7',
-    text: '#15803D',
-    border: '#BBF7D0',
+    bg: theme.colors.status.berjalan.bg,
+    text: theme.colors.status.berjalan.text,
+    border: theme.colors.status.berjalan.border,
   },
   SELESAI: {
     label: 'SELESAI',
-    bg: '#FEE2E2',
-    text: '#DC2626',
-    border: '#FECACA',
+    bg: theme.colors.status.selesai.bg,
+    text: theme.colors.status.selesai.text,
+    border: theme.colors.status.selesai.border,
   },
 };
 
@@ -150,364 +154,360 @@ export const SessionManagementScreen: React.FC = () => {
 
   if (profile?.role !== 'asisten') {
     return (
-      <SafeAreaView style={styles.container}>
-        <ErrorState
-          title="Akses Ditolak"
-          message="Anda tidak memiliki izin untuk mengakses halaman ini. Halaman ini khusus untuk Asisten Laboratorium."
-          onRetry={() => router.replace('/')}
-          retryText="Kembali ke Beranda"
-        />
-      </SafeAreaView>
+      <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+        <SafeAreaView style={styles.safeArea}>
+          <ErrorState
+            title="Akses Ditolak"
+            message="Anda tidak memiliki izin untuk mengakses halaman ini. Halaman ini khusus untuk Asisten Laboratorium."
+            onRetry={() => router.replace('/')}
+            retryText="Kembali ke Beranda"
+          />
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.backButtonText}>← Kembali</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Kelola Jadwal & Sesi</Text>
-        <Text style={styles.headerSubtitle}>
-          Atur jadwal, modul, dan siklus pelaksanaan praktikum
-        </Text>
-      </View>
+    <LinearGradient colors={theme.colors.backgroundGradient} style={styles.flexOne}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <StatusBar style="dark" />
 
-      {/* Konten Utama */}
-      {loading ? (
-        <LoadingState message="Memuat daftar sesi praktikum..." />
-      ) : error ? (
-        <ErrorState message={error} onRetry={refresh} />
-      ) : sessions.length === 0 ? (
-        <View style={styles.emptyWrapper}>
-          <EmptyState
-            message="Belum Ada Jadwal Sesi"
-            description="Silakan buat sesi praktikum baru melalui tombol di bawah."
-          />
+        {/* Header Bar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <Feather name="arrow-left" size={20} color={theme.colors.textPrimary} />
+          </TouchableOpacity>
+
+          <View style={styles.headerTitleGroup}>
+            <Text style={styles.screenTitle}>Kelola Jadwal & Sesi</Text>
+            <Text style={styles.screenSubtitle}>
+              Pengaturan sesi praktikum laboratorium
+            </Text>
+          </View>
         </View>
-      ) : (
-        <FlatList
-          data={sessions}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => {
-            const badge = STATUS_CONFIG[item.status];
-            const isBelumDibuka = item.status === 'BELUM_DIBUKA';
 
-            return (
-              <View style={styles.card}>
-                {/* Header baris: Nama Matkul & Status Badge */}
-                <View style={styles.topRow}>
-                  <Text style={styles.courseTitle} numberOfLines={2}>
-                    {item.courseTitle}
-                  </Text>
-                  <View
-                    style={[
-                      styles.badge,
-                      {
-                        backgroundColor: badge.bg,
-                        borderColor: badge.border,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.badgeText, { color: badge.text }]}>
-                      {badge.label}
+        {/* Main List */}
+        {loading ? (
+          <LoadingState message="Memuat jadwal sesi praktikum..." />
+        ) : error ? (
+          <ErrorState message={error} onRetry={refresh} retryText="Muat Ulang" />
+        ) : sessions.length === 0 ? (
+          <View style={styles.emptyWrapper}>
+            <EmptyState
+              message="Belum Ada Sesi Praktikum"
+              description="Silakan tambahkan jadwal sesi praktikum baru melalui tombol di bawah."
+            />
+          </View>
+        ) : (
+          <FlatList
+            data={sessions}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => {
+              const statusCfg =
+                STATUS_CONFIG[item.status] || STATUS_CONFIG.BELUM_DIBUKA;
+              const isEditable = item.status === 'BELUM_DIBUKA';
+
+              return (
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.titleCol}>
+                      <Text style={styles.courseTitle}>{item.courseTitle}</Text>
+                      <Text style={styles.moduleName}>{item.moduleName}</Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.badge,
+                        {
+                          backgroundColor: statusCfg.bg,
+                          borderColor: statusCfg.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.badgeText, { color: statusCfg.text }]}
+                      >
+                        {statusCfg.label}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.cardDivider} />
+
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Kelas & Ruang:</Text>
+                    <Text style={styles.infoValue}>
+                      {item.classGroup} • {item.roomName}
                     </Text>
                   </View>
-                </View>
 
-                {/* Modul */}
-                <Text style={styles.moduleName}>{item.moduleName}</Text>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Waktu Pelaksanaan:</Text>
+                    <Text style={styles.infoValue}>{item.timeSlot}</Text>
+                  </View>
 
-                <View style={styles.divider} />
-
-                {/* Detail */}
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Kelas & Ruang:</Text>
-                  <Text style={styles.infoValue}>
-                    {item.classGroup} - {item.roomName}
-                  </Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Waktu:</Text>
-                  <Text style={styles.infoValue}>{item.timeSlot}</Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Peserta Terdaftar:</Text>
-                  <Text style={styles.infoValue}>
-                    {item.participantIds.length} Mahasiswa
-                  </Text>
-                </View>
-
-                {/* Baris Tombol Aksi */}
-                <View style={styles.actionRow}>
-                  <TouchableOpacity
-                    style={styles.openDetailButton}
-                    onPress={() => handleGoToAssistantSession(item)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.openDetailButtonText}>Buka Detail Sesi</Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.subActionGroup}>
+                  {/* Action Buttons */}
+                  <View style={styles.cardActionsRow}>
                     <TouchableOpacity
-                      style={[
-                        styles.subActionButton,
-                        !isBelumDibuka && styles.actionDisabled,
-                      ]}
-                      onPress={() => handleOpenEditModal(item)}
-                      disabled={!isBelumDibuka}
-                      activeOpacity={0.7}
+                      style={styles.openControlBtn}
+                      onPress={() => handleGoToAssistantSession(item)}
+                      activeOpacity={0.8}
                     >
-                      <Text
-                        style={[
-                          styles.subActionTextEdit,
-                          !isBelumDibuka && styles.textDisabled,
-                        ]}
-                      >
-                        Ubah
+                      <Feather name="external-link" size={13} color="#FFFFFF" style={styles.btnIcon} />
+                      <Text style={styles.openControlBtnText}>
+                        Buka Kontrol Sesi
                       </Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={[
-                        styles.subActionButton,
-                        !isBelumDibuka && styles.actionDisabled,
-                      ]}
-                      onPress={() => handlePromptDelete(item)}
-                      disabled={!isBelumDibuka}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        style={[
-                          styles.subActionTextDelete,
-                          !isBelumDibuka && styles.textDisabled,
-                        ]}
-                      >
-                        Hapus
-                      </Text>
-                    </TouchableOpacity>
+                    {isEditable && (
+                      <View style={styles.editDeleteGroup}>
+                        <TouchableOpacity
+                          style={styles.editBtn}
+                          onPress={() => handleOpenEditModal(item)}
+                          activeOpacity={0.7}
+                        >
+                          <Feather name="edit-2" size={13} color={theme.colors.textPrimary} style={styles.btnIcon} />
+                          <Text style={styles.editBtnText}>Ubah</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.deleteBtn}
+                          onPress={() => handlePromptDelete(item)}
+                          activeOpacity={0.7}
+                        >
+                          <Feather name="trash-2" size={13} color="#DC2626" style={styles.btnIcon} />
+                          <Text style={styles.deleteBtnText}>Hapus</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 </View>
-              </View>
-            );
+              );
+            }}
+          />
+        )}
+
+        {/* Floating Action Button (FAB) Tambah Sesi */}
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={handleOpenAddModal}
+          activeOpacity={0.85}
+        >
+          <Feather name="plus" size={18} color="#FFFFFF" style={styles.fabIcon} />
+          <Text style={styles.fabText}>Tambah Sesi</Text>
+        </TouchableOpacity>
+
+        {/* Modal Form Tambah/Ubah Sesi */}
+        <SessionFormModal
+          visible={formModalVisible}
+          initialData={selectedSession}
+          onClose={() => setFormModalVisible(false)}
+          onSubmit={handleSubmitForm}
+        />
+
+        {/* Modal Konfirmasi Hapus Sesi */}
+        <ConfirmModal
+          visible={deleteModalVisible}
+          title="Hapus Sesi Praktikum?"
+          message={`Apakah Anda yakin ingin menghapus sesi "${sessionToDelete?.courseTitle} - ${sessionToDelete?.moduleName}"? Tindakan ini tidak dapat dibatalkan.`}
+          confirmText={deleting ? 'Menghapus...' : 'Ya, Hapus'}
+          cancelText="Batal"
+          confirmVariant="danger"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => {
+            if (!deleting) setDeleteModalVisible(false);
           }}
         />
-      )}
-
-      {/* FAB Tambah Sesi */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={handleOpenAddModal}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.fabIcon}>+</Text>
-        <Text style={styles.fabText}>Tambah Sesi</Text>
-      </TouchableOpacity>
-
-      {/* Modal Form */}
-      <SessionFormModal
-        visible={formModalVisible}
-        initialData={selectedSession}
-        onClose={() => setFormModalVisible(false)}
-        onSubmit={handleSubmitForm}
-      />
-
-      {/* Modal Konfirmasi Hapus */}
-      <ConfirmModal
-        visible={deleteModalVisible}
-        title="Hapus Sesi Praktikum?"
-        message={`Apakah Anda yakin ingin menghapus jadwal "${sessionToDelete?.moduleName}"? Tindakan ini tidak dapat dibatalkan.`}
-        confirmText={deleting ? 'Menghapus...' : 'Ya, Hapus'}
-        cancelText="Batal"
-        confirmVariant="danger"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => {
-          if (!deleting) setDeleteModalVisible(false);
-        }}
-      />
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  flexOne: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
-    padding: 16,
   },
-  header: {
-    marginBottom: 16,
+  safeArea: {
+    flex: 1,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   backButton: {
-    paddingVertical: 4,
-    marginBottom: 8,
-    alignSelf: 'flex-start',
+    width: 44,
+    height: 44,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    ...theme.shadows.subtle,
   },
-  backButtonText: {
-    color: '#2563EB',
-    fontSize: 14,
-    fontWeight: '600',
+  headerTitleGroup: {
+    flex: 1,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.5,
   },
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
+  screenSubtitle: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 1,
   },
   listContent: {
+    paddingHorizontal: 16,
     paddingBottom: 90,
   },
   emptyWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 16,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xl,
+    padding: 18,
+    marginBottom: 14,
+    ...theme.shadows.card,
   },
-  topRow: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 6,
   },
-  courseTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1F2937',
+  titleCol: {
     flex: 1,
     marginRight: 8,
   },
+  courseTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+  },
+  moduleName: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
   badge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.full,
     borderWidth: 1,
   },
   badgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  moduleName: {
-    fontSize: 13,
-    color: '#4B5563',
-    marginBottom: 10,
-  },
-  divider: {
+  cardDivider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
-    marginBottom: 10,
+    backgroundColor: theme.colors.borderLight,
+    marginVertical: 12,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    marginBottom: 4,
   },
   infoLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
   infoValue: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
   },
-  actionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  cardActionsRow: {
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderColor: theme.colors.borderLight,
+    gap: 8,
   },
-  openDetailButton: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  openDetailButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  subActionGroup: {
+  openControlBtn: {
+    backgroundColor: theme.colors.textPrimary,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
     flexDirection: 'row',
-    gap: 6,
   },
-  subActionButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
+  openControlBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  editDeleteGroup: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FAFAFA',
+    borderColor: theme.colors.border,
+    paddingVertical: 8,
+    borderRadius: theme.borderRadius.md,
   },
-  subActionTextEdit: {
+  editBtnText: {
     fontSize: 12,
-    color: '#2563EB',
-    fontWeight: '600',
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
   },
-  subActionTextDelete: {
+  deleteBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    paddingVertical: 8,
+    borderRadius: theme.borderRadius.md,
+  },
+  deleteBtnText: {
     fontSize: 12,
+    fontWeight: '700',
     color: '#DC2626',
-    fontWeight: '600',
-  },
-  actionDisabled: {
-    opacity: 0.4,
-    backgroundColor: '#F3F4F6',
-    borderColor: '#E5E7EB',
-  },
-  textDisabled: {
-    color: '#9CA3AF',
   },
   fab: {
     position: 'absolute',
-    right: 16,
-    bottom: 20,
-    backgroundColor: '#2563EB',
+    bottom: 24,
+    right: 20,
+    backgroundColor: theme.colors.textPrimary,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 13,
     paddingHorizontal: 20,
-    borderRadius: 30,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    borderRadius: theme.borderRadius.full,
+    ...theme.shadows.card,
   },
   fabIcon: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
     marginRight: 6,
   },
   fabText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  btnIcon: {
+    marginRight: 4,
   },
 });
 

@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { RoleType, SessionItem, SessionStatus } from '../types';
+import { theme } from '../theme';
 
 interface SessionCardProps {
   session: SessionItem;
@@ -18,21 +20,21 @@ interface StatusBadgeConfig {
 const STATUS_CONFIG: Record<SessionStatus, StatusBadgeConfig> = {
   BELUM_DIBUKA: {
     label: 'BELUM DIBUKA',
-    backgroundColor: '#FEF3C7', // Kuning / oranye
-    textColor: '#D97706',
-    borderColor: '#FDE68A',
+    backgroundColor: theme.colors.status.belumDibuka.bg,
+    textColor: theme.colors.status.belumDibuka.text,
+    borderColor: theme.colors.status.belumDibuka.border,
   },
   BERJALAN: {
     label: 'BERJALAN',
-    backgroundColor: '#DCFCE7', // Hijau
-    textColor: '#15803D',
-    borderColor: '#BBF7D0',
+    backgroundColor: theme.colors.status.berjalan.bg,
+    textColor: theme.colors.status.berjalan.text,
+    borderColor: theme.colors.status.berjalan.border,
   },
   SELESAI: {
     label: 'SELESAI',
-    backgroundColor: '#FEE2E2', // Merah
-    textColor: '#DC2626',
-    borderColor: '#FECACA',
+    backgroundColor: theme.colors.status.selesai.bg,
+    textColor: theme.colors.status.selesai.text,
+    borderColor: theme.colors.status.selesai.border,
   },
 };
 
@@ -42,134 +44,195 @@ export const SessionCard: React.FC<SessionCardProps> = ({
   onSelectSession,
 }) => {
   const statusConfig = STATUS_CONFIG[session.status] || STATUS_CONFIG.BELUM_DIBUKA;
+  const isBerjalan = session.status === 'BERJALAN';
 
   return (
-    <View style={styles.card}>
-      {/* Baris Atas: Nama Matkul di kiri, Badge Status di kanan */}
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.88}
+      onPress={() => onSelectSession?.(session, currentRole)}
+    >
+      {/* Category Tag & Status Badge */}
       <View style={styles.topRow}>
-        <Text style={styles.courseTitle} numberOfLines={2}>
-          {session.courseTitle}
-        </Text>
         <View
           style={[
-            styles.badge,
+            styles.categoryTag,
+            isBerjalan ? styles.categoryTagOngoing : styles.categoryTagDefault,
+          ]}
+        >
+          <Text
+            style={[
+              styles.categoryTagText,
+              isBerjalan ? styles.categoryTagTextOngoing : styles.categoryTagTextDefault,
+            ]}
+          >
+            PRAKTIKUM
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.statusBadge,
             {
               backgroundColor: statusConfig.backgroundColor,
               borderColor: statusConfig.borderColor,
             },
           ]}
         >
-          <Text style={[styles.badgeText, { color: statusConfig.textColor }]}>
+          <Text style={[styles.statusBadgeText, { color: statusConfig.textColor }]}>
             {statusConfig.label}
           </Text>
         </View>
       </View>
 
-      {/* Topik / Modul */}
-      <Text style={styles.moduleName}>{session.moduleName}</Text>
+      {/* Large Bold Time Slot */}
+      <Text style={styles.timeSlotText}>{session.timeSlot}</Text>
 
-      {/* Garis Pemisah Tipis */}
-      <View style={styles.divider} />
+      {/* Course Title & Module */}
+      <Text style={styles.courseTitle} numberOfLines={2}>
+        {session.courseTitle}
+      </Text>
+      <Text style={styles.moduleName} numberOfLines={1}>
+        {session.moduleName}
+      </Text>
 
-      {/* Info Detail: Kelas & Ruangan, Waktu Pelaksanaan */}
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>Kelas & Ruang:</Text>
-        <Text style={styles.infoValue}>
-          {session.classGroup} - {session.roomName}
-        </Text>
+      {/* Bullet Info Items */}
+      <View style={styles.bulletList}>
+        <View style={styles.bulletItem}>
+          <Text style={styles.bulletDot}>•</Text>
+          <Text style={styles.bulletText}>
+            Kelas: <Text style={styles.bulletBold}>{session.classGroup}</Text>
+          </Text>
+        </View>
+        <View style={styles.bulletItem}>
+          <Text style={styles.bulletDot}>•</Text>
+          <Text style={styles.bulletText}>
+            Ruangan: <Text style={styles.bulletBold}>{session.roomName}</Text>
+          </Text>
+        </View>
       </View>
 
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>Waktu:</Text>
-        <Text style={styles.infoValue}>{session.timeSlot}</Text>
+      {/* Bottom Action Row */}
+      <View style={styles.bottomRow}>
+        <Text style={styles.actionPromptText}>Buka Detail Sesi</Text>
+        <View style={styles.arrowCircle}>
+          <Feather name="arrow-right" size={16} color="#FFFFFF" />
+        </View>
       </View>
-
-      {/* Tombol Aksi Interaktif */}
-      <TouchableOpacity
-        style={styles.actionButton}
-        activeOpacity={0.8}
-        onPress={() => onSelectSession?.(session, currentRole)}
-      >
-        <Text style={styles.actionButtonText}>Buka Detail Sesi</Text>
-      </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xl,
+    padding: 18,
+    marginBottom: 14,
+    ...theme.shadows.card,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 6,
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  courseTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-    flex: 1,
-    marginRight: 8,
+  categoryTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignSelf: 'flex-start',
+  categoryTagDefault: {
+    backgroundColor: '#EFF6FF',
   },
-  badgeText: {
+  categoryTagOngoing: {
+    backgroundColor: '#FEF2F2',
+  },
+  categoryTagText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  categoryTagTextDefault: {
+    color: '#2563EB',
+  },
+  categoryTagTextOngoing: {
+    color: '#EF4444',
+  },
+  statusBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
+  timeSlotText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  courseTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    lineHeight: 20,
+  },
   moduleName: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  bulletList: {
+    backgroundColor: theme.colors.surfaceSubtle,
+    padding: 10,
+    borderRadius: theme.borderRadius.md,
+    gap: 4,
+    marginBottom: 12,
+  },
+  bulletItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bulletDot: {
     fontSize: 14,
-    color: '#4B5563',
-    marginBottom: 12,
+    color: theme.colors.textMuted,
+    marginRight: 6,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginBottom: 12,
+  bulletText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
   },
-  infoRow: {
+  bulletBold: {
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+  },
+  bottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  infoLabel: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  infoValue: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#1F2937',
-  },
-  actionButton: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 12,
-    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderColor: theme.colors.borderLight,
   },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
+  actionPromptText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+  },
+  arrowCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.textPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

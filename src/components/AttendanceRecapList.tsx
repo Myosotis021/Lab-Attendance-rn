@@ -6,9 +6,11 @@ import {
   StyleSheet,
   ListRenderItem,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { AttendanceRecord, AttendanceStatus } from '../types';
 import { formatAttendanceTime } from '../services/attendanceService';
 import { Timestamp } from 'firebase/firestore';
+import { theme } from '../theme';
 
 export const INITIAL_ATTENDEES: AttendanceRecord[] = [
   {
@@ -58,7 +60,6 @@ export const AttendanceRecapList: React.FC<AttendanceRecapListProps> = ({
   attendees,
   headerTitle = 'Rekapitulasi Kehadiran Praktikan',
 }) => {
-  // Count counts for summary
   const totalCount = attendees.length;
   const hadirCount = attendees.filter((a) => a.status === 'Hadir').length;
   const izinCount = attendees.filter((a) => a.status === 'Izin').length;
@@ -89,334 +90,265 @@ export const AttendanceRecapList: React.FC<AttendanceRecapListProps> = ({
     }
   };
 
-  const getInitials = (name: string) => {
-    if (!name) return '??';
-    const parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-  };
-
-  const renderItem: ListRenderItem<AttendanceRecord> = ({ item }) => {
-    const badgeStyle = getStatusBadgeStyle(item.status);
+  const renderItem: ListRenderItem<AttendanceRecord> = ({ item, index }) => {
+    const badge = getStatusBadgeStyle(item.status);
+    const displayTime =
+      item.timestamp || formatAttendanceTime(item.createdAt);
 
     return (
-      <View style={styles.recordCard}>
-        <View style={styles.cardLeft}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{getInitials(item.studentName)}</Text>
-          </View>
-          <View style={styles.infoCol}>
-            <Text style={styles.studentName} numberOfLines={1}>
-              {item.studentName}
-            </Text>
-            <Text style={styles.studentNim}>NIM: {item.studentNim}</Text>
-            <View style={styles.timeRow}>
-              <Text style={styles.timeLabel}>Waktu:</Text>
-              <Text style={styles.timeValue}>
-                {item.timestamp || formatAttendanceTime(item.createdAt)}
-              </Text>
-            </View>
+      <View style={styles.itemRow}>
+        <View style={styles.indexCircle}>
+          <Text style={styles.indexText}>{index + 1}</Text>
+        </View>
+
+        <View style={styles.itemInfo}>
+          <Text style={styles.studentName} numberOfLines={1}>
+            {item.studentName}
+          </Text>
+          <View style={styles.subInfoRow}>
+            {item.studentNim ? (
+              <Text style={styles.nimText}>NIM: {item.studentNim}</Text>
+            ) : null}
             {item.notes ? (
-              <Text style={styles.notesText} numberOfLines={1}>
-                Catatan: {item.notes}
-              </Text>
+              <Text style={styles.notesText}> • {item.notes}</Text>
             ) : null}
           </View>
         </View>
 
-        <View style={[styles.badge, badgeStyle.container]}>
-          <Text style={[styles.badgeText, badgeStyle.text]}>{item.status}</Text>
+        <View style={styles.itemRight}>
+          <View style={[styles.statusBadge, badge.container]}>
+            <Text style={[styles.statusBadgeText, badge.text]}>
+              {item.status.toUpperCase()}
+            </Text>
+          </View>
+          <Text style={styles.timeText}>{displayTime}</Text>
         </View>
       </View>
     );
   };
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <View style={styles.emptyIconCircle}>
-        <Text style={styles.emptyIconText}>📋</Text>
-      </View>
-      <Text style={styles.emptyTitle}>Data Masih Kosong</Text>
-      <Text style={styles.emptyDescription}>
-        Belum ada mahasiswa praktikan yang melakukan presensi pada sesi ini.
-      </Text>
-    </View>
-  );
-
   return (
-    <View style={styles.container}>
-      {/* Section Header & Summary */}
-      <View style={styles.summaryContainer}>
-        <View style={styles.titleRow}>
-          <Text style={styles.sectionTitle}>{headerTitle}</Text>
-        </View>
+    <View style={styles.card}>
+      {/* Header & Title */}
+      <View style={styles.headerArea}>
+        <Text style={styles.headerTitle}>{headerTitle}</Text>
+        <Text style={styles.headerSubtitle}>Total {totalCount} Mahasiswa Hadir / Izin</Text>
+      </View>
 
-        {/* Highlighted headline according to SRS */}
-        <View style={styles.headlineCard}>
-          <Text style={styles.headlineText}>
-            Total Mahasiswa Hadir: <Text style={styles.headlineHighlight}>{hadirCount} Mahasiswa</Text>
-          </Text>
-          <Text style={styles.headlineSub}>
-            (Total Terdata: {totalCount} Mahasiswa)
-          </Text>
+      {/* Summary Pills Grid */}
+      <View style={styles.summaryRow}>
+        <View style={[styles.summaryPill, styles.summaryPillHadir]}>
+          <Text style={styles.summaryCountHadir}>{hadirCount}</Text>
+          <Text style={styles.summaryLabelHadir}>Hadir</Text>
         </View>
-
-        {/* Breakdown chips */}
-        <View style={styles.chipsRow}>
-          <View style={[styles.chip, styles.chipHadir]}>
-            <Text style={styles.chipTextHadir}>Hadir: {hadirCount}</Text>
-          </View>
-          <View style={[styles.chip, styles.chipIzin]}>
-            <Text style={styles.chipTextIzin}>Izin: {izinCount}</Text>
-          </View>
-          <View style={[styles.chip, styles.chipSakit]}>
-            <Text style={styles.chipTextSakit}>Sakit: {sakitCount}</Text>
-          </View>
+        <View style={[styles.summaryPill, styles.summaryPillIzin]}>
+          <Text style={styles.summaryCountIzin}>{izinCount}</Text>
+          <Text style={styles.summaryLabelIzin}>Izin</Text>
+        </View>
+        <View style={[styles.summaryPill, styles.summaryPillSakit]}>
+          <Text style={styles.summaryCountSakit}>{sakitCount}</Text>
+          <Text style={styles.summaryLabelSakit}>Sakit</Text>
         </View>
       </View>
 
-      {/* List or Empty State */}
-      <FlatList
-        data={attendees}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={
-          attendees.length === 0 ? styles.emptyListContent : styles.listContent
-        }
-        scrollEnabled={false} // Nested inside screen ScrollView smoothly
-      />
+      {/* List or Empty */}
+      {attendees.length === 0 ? (
+        <View style={styles.emptyBox}>
+          <Feather name="users" size={24} color={theme.colors.textMuted} />
+          <Text style={styles.emptyText}>Belum ada presensi yang masuk</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={attendees}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          scrollEnabled={false}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+        />
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    width: '100%',
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xl,
+    padding: 18,
+    ...theme.shadows.card,
+    marginBottom: 16,
   },
-  summaryContainer: {
+  headerArea: {
     marginBottom: 14,
   },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sectionTitle: {
+  headerTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
   },
-  headlineCard: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    marginBottom: 8,
-  },
-  headlineText: {
-    fontSize: 14,
-    color: '#1E3A8A',
-    fontWeight: '500',
-  },
-  headlineHighlight: {
-    fontWeight: '700',
-    color: '#1D4ED8',
-  },
-  headlineSub: {
+  headerSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: theme.colors.textMuted,
     marginTop: 2,
   },
-  chipsRow: {
+  summaryRow: {
     flexDirection: 'row',
     gap: 8,
+    marginBottom: 16,
   },
-  chip: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 6,
+  summaryPill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
     borderWidth: 1,
   },
-  chipHadir: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#BBF7D0',
+  summaryPillHadir: {
+    backgroundColor: theme.colors.status.hadir.bg,
+    borderColor: theme.colors.status.hadir.border,
   },
-  chipTextHadir: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#15803D',
+  summaryCountHadir: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.colors.status.hadir.text,
   },
-  chipIzin: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
-  },
-  chipTextIzin: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#B45309',
-  },
-  chipSakit: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#C7D2FE',
-  },
-  chipTextSakit: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#4338CA',
-  },
-  listContent: {
-    paddingBottom: 20,
-  },
-  emptyListContent: {
-    paddingVertical: 10,
-  },
-  recordCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  cardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 8,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarText: {
-    fontSize: 14,
+  summaryLabelHadir: {
+    fontSize: 10,
     fontWeight: '700',
-    color: '#475569',
+    color: theme.colors.status.hadir.text,
+    textTransform: 'uppercase',
   },
-  infoCol: {
+  summaryPillIzin: {
+    backgroundColor: theme.colors.status.izin.bg,
+    borderColor: theme.colors.status.izin.border,
+  },
+  summaryCountIzin: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.colors.status.izin.text,
+  },
+  summaryLabelIzin: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.status.izin.text,
+    textTransform: 'uppercase',
+  },
+  summaryPillSakit: {
+    backgroundColor: theme.colors.status.sakit.bg,
+    borderColor: theme.colors.status.sakit.border,
+  },
+  summaryCountSakit: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.colors.status.sakit.text,
+  },
+  summaryLabelSakit: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.status.sakit.text,
+    textTransform: 'uppercase',
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  indexCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surfaceSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  indexText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.textMuted,
+  },
+  itemInfo: {
     flex: 1,
   },
   studentName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 2,
+    color: theme.colors.textPrimary,
   },
-  studentNim: {
-    fontSize: 12,
-    color: '#4B5563',
-    marginBottom: 2,
-  },
-  timeRow: {
+  subInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 2,
   },
-  timeLabel: {
+  nimText: {
     fontSize: 11,
-    color: '#9CA3AF',
-    marginRight: 4,
-  },
-  timeValue: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
   notesText: {
     fontSize: 11,
-    fontStyle: 'italic',
-    color: '#6B7280',
-    marginTop: 2,
+    color: theme.colors.textMuted,
   },
-  badge: {
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+  itemRight: {
+    alignItems: 'flex-end',
+    marginLeft: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.borderRadius.full,
     borderWidth: 1,
+    marginBottom: 2,
   },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '700',
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  timeText: {
+    fontSize: 10,
+    color: theme.colors.textMuted,
   },
   badgeHadir: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#86EFAC',
+    backgroundColor: theme.colors.status.hadir.bg,
+    borderColor: theme.colors.status.hadir.border,
   },
   badgeTextHadir: {
-    color: '#15803D',
+    color: theme.colors.status.hadir.text,
   },
   badgeIzin: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FCD34D',
+    backgroundColor: theme.colors.status.izin.bg,
+    borderColor: theme.colors.status.izin.border,
   },
   badgeTextIzin: {
-    color: '#B45309',
+    color: theme.colors.status.izin.text,
   },
   badgeSakit: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#A5B4FC',
+    backgroundColor: theme.colors.status.sakit.bg,
+    borderColor: theme.colors.status.sakit.border,
   },
   badgeTextSakit: {
-    color: '#4338CA',
+    color: theme.colors.status.sakit.text,
   },
   badgeDefault: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#E5E7EB',
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderColor: theme.colors.border,
   },
   badgeTextDefault: {
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
-  emptyContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 32,
-    paddingHorizontal: 20,
+  separator: {
+    height: 1,
+    backgroundColor: theme.colors.borderLight,
+  },
+  emptyBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-    marginVertical: 8,
+    paddingVertical: 20,
+    gap: 8,
   },
-  emptyIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  emptyIconText: {
-    fontSize: 24,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 4,
-  },
-  emptyDescription: {
+  emptyText: {
     fontSize: 13,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 18,
+    color: theme.colors.textMuted,
   },
 });
 

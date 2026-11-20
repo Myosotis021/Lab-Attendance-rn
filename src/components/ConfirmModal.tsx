@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
+import { theme } from '../theme';
 
 export interface ConfirmModalProps {
   visible: boolean;
@@ -58,17 +59,17 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
 
-          <View style={styles.buttonContainer}>
+          <View style={styles.actionsRow}>
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={onCancel}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
               <Text style={styles.cancelButtonText}>{cancelText}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.confirmButton, getConfirmButtonStyle()]}
+              style={[styles.confirmButtonBase, getConfirmButtonStyle()]}
               onPress={onConfirm}
               activeOpacity={0.8}
             >
@@ -84,73 +85,69 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 24,
   },
   dialogBox: {
-    width: '85%',
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 20,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xxl,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    ...theme.shadows.card,
   },
   title: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
     marginBottom: 8,
   },
   message: {
-    fontSize: 14,
-    color: '#4B5563',
-    lineHeight: 20,
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    lineHeight: 19,
     marginBottom: 20,
   },
-  buttonContainer: {
+  actionsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 12,
+    gap: 10,
   },
   cancelButton: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    borderRadius: theme.borderRadius.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    justifyContent: 'center',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSubtle,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#4B5563',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontWeight: '700',
   },
-  confirmButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    justifyContent: 'center',
+  confirmButtonBase: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: theme.borderRadius.md,
     alignItems: 'center',
   },
   confirmButtonPrimary: {
-    backgroundColor: '#2563EB',
-  },
-  confirmButtonSuccess: {
-    backgroundColor: '#16A34A',
+    backgroundColor: theme.colors.textPrimary,
   },
   confirmButtonDanger: {
     backgroundColor: '#DC2626',
   },
+  confirmButtonSuccess: {
+    backgroundColor: '#166534',
+  },
   confirmButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
 

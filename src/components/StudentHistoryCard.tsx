@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { AttendanceRecord, AttendanceStatus } from '../types';
+import { formatJakartaTime } from '../utils/timeUtils';
 
 interface StudentHistoryCardProps {
   attendance: AttendanceRecord;
@@ -66,7 +67,7 @@ export const StudentHistoryCard: React.FC<StudentHistoryCardProps> = ({
       <View style={styles.statusCallout}>
         <Text style={styles.calloutText}>
           Anda telah berhasil presensi pada{' '}
-          <Text style={styles.calloutBold}>{attendance.timestamp}</Text> - Status:{' '}
+          <Text style={styles.calloutBold}>{formatJakartaTime(attendance.timestamp)}</Text> - Status:{' '}
           <Text style={[styles.calloutBold, { color: badgeStyle.text }]}>
             [{attendance.status}]
           </Text>

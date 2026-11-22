@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
+  Alert,
+  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -15,6 +17,10 @@ import {
   AttendanceRecapList,
   INITIAL_ATTENDEES,
 } from '../components/AttendanceRecapList';
+import useAuth from '../hooks/useAuth';
+import { setSessionStatus, rescheduleSession } from '../services/sessionService';
+import { formatJakartaTime, buildTimestamp } from '../utils/timeUtils';
+import TimeSlotPicker, { TimeSlotPickerValue } from '../components/TimeSlotPicker';
 
 export interface AssistantSessionScreenProps {
   session?: SessionItem;
@@ -36,6 +42,7 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
   onBack,
 }) => {
   const router = useRouter();
+  const { profile } = useAuth('asisten');
   const searchParams = useLocalSearchParams<{
     id?: string;
     courseTitle?: string;
@@ -79,6 +86,9 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
   const [currentStatus, setCurrentStatus] = useState<SessionStatus>(
     initialSession.status
   );
+  const [currentTimeSlot, setCurrentTimeSlot] = useState<string>(
+    initialSession.timeSlot
+  );
   const [attendees, setAttendees] = useState<AttendanceRecord[]>(INITIAL_ATTENDEES);
 
   // Modal confirmation state
@@ -86,6 +96,10 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
   const [pendingAction, setPendingAction] = useState<'OPEN' | 'CLOSE' | null>(
     null
   );
+
+  // Modal Reschedule state
+  const [rescheduleModalVisible, setRescheduleModalVisible] = useState<boolean>(false);
+  const [rescheduleData, setRescheduleData] = useState<TimeSlotPickerValue | null>(null);
 
   // Status configuration for badge
   const getStatusBadgeConfig = (status: SessionStatus) => {
@@ -131,20 +145,76 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
     setModalVisible(true);
   };
 
-  // Confirm modal action handler
-  const handleConfirmAction = () => {
-    if (pendingAction === 'OPEN') {
-      setCurrentStatus('BERJALAN');
-    } else if (pendingAction === 'CLOSE') {
-      setCurrentStatus('SELESAI');
-    }
+  // Confirm modal action handler with time constraint validation & Firestore update
+  const handleConfirmAction = async () => {
+    const action = pendingAction;
     setModalVisible(false);
     setPendingAction(null);
+
+    if (action === 'OPEN') {
+      try {
+        await setSessionStatus(initialSession.id, 'BERJALAN');
+        setCurrentStatus('BERJALAN');
+      } catch (err: any) {
+        Alert.alert(
+          'Tidak Dapat Membuka Sesi',
+          err?.message || 'Waktu pembukaan sesi belum terpenuhi.'
+        );
+      }
+    } else if (action === 'CLOSE') {
+      try {
+        await setSessionStatus(initialSession.id, 'SELESAI');
+        setCurrentStatus('SELESAI');
+      } catch (err: any) {
+        Alert.alert('Gagal Menutup Sesi', err?.message || 'Terjadi kesalahan sistem.');
+      }
+    }
   };
 
   const handleCancelAction = () => {
     setModalVisible(false);
     setPendingAction(null);
+  };
+
+  // Reschedule handler
+  const handleRescheduleSubmit = async () => {
+    if (!rescheduleData) {
+      Alert.alert('Peringatan', 'Silakan pilih tanggal dan jam yang valid.');
+      return;
+    }
+
+    try {
+      const scheduledAt = buildTimestamp(rescheduleData.date, rescheduleData.startTime);
+      const scheduledEndAt = buildTimestamp(rescheduleData.date, rescheduleData.endTime);
+      const formattedDate = formatJakartaTime(scheduledAt).split(',')[0];
+      const newTimeSlot = `${formattedDate}, ${rescheduleData.startTime} - ${rescheduleData.endTime} WIB`;
+
+      await rescheduleSession(initialSession.id, {
+        scheduledAt,
+        scheduledEndAt,
+        timeSlot: newTimeSlot,
+      });
+
+      setCurrentTimeSlot(newTimeSlot);
+      setRescheduleModalVisible(false);
+      Alert.alert('Sukses', `Jadwal sesi berhasil diubah ke: ${newTimeSlot}`);
+    } catch (err: any) {
+      Alert.alert('Gagal Mengubah Jadwal', err?.message || 'Periksa kembali data jadwal.');
+    }
+  };
+
+  const handleNavigateToLeave = () => {
+    router.push({
+      pathname: '/leave-request-form',
+      params: {
+        sessionId: initialSession.id,
+        courseTitle: initialSession.courseTitle,
+        moduleName: initialSession.moduleName,
+        classGroup: initialSession.classGroup,
+        roomName: initialSession.roomName,
+        timeSlot: currentTimeSlot,
+      },
+    } as any);
   };
 
   const handleBackPress = () => {
@@ -245,7 +315,7 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
             </View>
             <View style={styles.metaRow}>
               <Text style={styles.metaIcon}>🕒</Text>
-              <Text style={styles.metaText}>{initialSession.timeSlot}</Text>
+              <Text style={styles.metaText}>{currentTimeSlot}</Text>
             </View>
           </View>
         </View>
@@ -266,6 +336,24 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
               <Text style={styles.actionHint}>
                 Praktikan akan dapat melakukan presensi kehadiran setelah sesi dibuka.
               </Text>
+
+              {/* Tombol Ubah Jadwal (Asisten) */}
+              <TouchableOpacity
+                style={styles.btnReschedule}
+                onPress={() => setRescheduleModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.btnRescheduleText}>📅 Ubah Jadwal Sesi</Text>
+              </TouchableOpacity>
+
+              {/* Tombol Ajukan Izin (Praktikan / Demo) */}
+              <TouchableOpacity
+                style={styles.leaveButton}
+                onPress={handleNavigateToLeave}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.leaveButtonText}>✉️ Ajukan Izin Ketidakhadiran</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -338,6 +426,45 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
         {/* 2.3 Rekapitulasi Kehadiran Praktikan */}
         <AttendanceRecapList attendees={attendees} />
       </ScrollView>
+
+      {/* Reschedule Modal */}
+      <Modal
+        visible={rescheduleModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setRescheduleModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalHeaderTitle}>Ubah Jadwal Sesi</Text>
+            <Text style={styles.modalHeaderSub}>
+              Hanya dapat dilakukan sebelum sesi dibuka. Perubahan akan diberitahukan ke praktikan.
+            </Text>
+
+            <TimeSlotPicker
+              value={rescheduleData}
+              onChange={(val) => setRescheduleData(val)}
+            />
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setRescheduleModalVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCancelText}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalSaveBtn}
+                onPress={handleRescheduleSubmit}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalSaveText}>Simpan Jadwal</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Confirmation Modal */}
       <ConfirmModal
@@ -577,6 +704,93 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#0284C7',
+  },
+  btnReschedule: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  btnRescheduleText: {
+    color: '#374151',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  leaveButton: {
+    borderWidth: 1.5,
+    borderColor: '#0D9488',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    backgroundColor: '#F0FDFA',
+    marginTop: 8,
+  },
+  leaveButtonText: {
+    color: '#0D9488',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  modalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  modalHeaderSub: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 12,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 12,
+  },
+  modalCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  modalSaveBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    backgroundColor: '#2563EB',
+  },
+  modalSaveText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
 

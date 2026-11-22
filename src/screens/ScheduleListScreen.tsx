@@ -12,7 +12,9 @@ import { useRouter } from 'expo-router';
 import EmptyState from '../components/EmptyState';
 import RoleSwitcher from '../components/RoleSwitcher';
 import SessionCard from '../components/SessionCard';
-import { INITIAL_SCHEDULES, Role, SessionItem } from '../data/schedules';
+import { INITIAL_SCHEDULES, Role, SessionItem, SessionStatus } from '../data/schedules';
+
+export type FilterStatus = 'SEMUA' | SessionStatus;
 
 interface ScheduleListScreenProps {
   initialRole?: Role;
@@ -29,6 +31,12 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
   // State currentRole dikelola di tingkat layar utama
   const [currentRole, setCurrentRole] = useState<Role>(initialRole);
   const [schedules, setSchedules] = useState<SessionItem[]>(initialSchedules);
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('SEMUA');
+
+  const filteredSchedules = schedules.filter((s) => {
+    if (filterStatus === 'SEMUA') return true;
+    return s.status === filterStatus;
+  });
 
   const handleSelectSession = (session: SessionItem, role: Role) => {
     if (onSelectSession) {
@@ -61,6 +69,35 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
         currentRole={currentRole}
         onRoleChange={(newRole) => setCurrentRole(newRole)}
       />
+
+      {/* Filter Sesi di Atas Daftar (BUG-05) */}
+      <View style={styles.filterTabsContainer}>
+        {(['SEMUA', 'BERJALAN', 'BELUM_DIBUKA', 'SELESAI'] as FilterStatus[]).map((st) => {
+          const isActive = filterStatus === st;
+          const label =
+            st === 'SEMUA'
+              ? 'Semua'
+              : st === 'BERJALAN'
+              ? 'Berjalan'
+              : st === 'BELUM_DIBUKA'
+              ? 'Belum Buka'
+              : 'Selesai';
+          return (
+            <TouchableOpacity
+              key={st}
+              style={[styles.filterTabPill, isActive && styles.filterTabPillActive]}
+              onPress={() => setFilterStatus(st)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[styles.filterTabText, isActive && styles.filterTabTextActive]}
+              >
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       {/* Fitur Izin & AI (Developer 3) */}
       <View style={styles.featureBox}>
@@ -110,8 +147,8 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
         <View>
           <Text style={styles.sectionTitle}>Jadwal Praktikum</Text>
           <Text style={styles.sectionSubtitle}>
-            {schedules.length > 0
-              ? `${schedules.length} sesi tersedia`
+            {filteredSchedules.length > 0
+              ? `${filteredSchedules.length} sesi ditampilkan`
               : 'Tidak ada sesi'}
           </Text>
         </View>
@@ -127,13 +164,13 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
       </View>
 
       {/* Daftar Sesi atau Empty State jika data kosong */}
-      {schedules.length === 0 ? (
+      {filteredSchedules.length === 0 ? (
         <View style={styles.emptyContainer}>
           <EmptyState />
         </View>
       ) : (
         <FlatList
-          data={schedules}
+          data={filteredSchedules}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <SessionCard
@@ -160,6 +197,29 @@ const styles = StyleSheet.create({
   },
   headerArea: {
     marginBottom: 12,
+  },
+  filterTabsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginVertical: 10,
+    flexWrap: 'wrap',
+  },
+  filterTabPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#E5E7EB',
+  },
+  filterTabPillActive: {
+    backgroundColor: '#2563EB',
+  },
+  filterTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  filterTabTextActive: {
+    color: '#FFFFFF',
   },
   appTitle: {
     fontSize: 22,

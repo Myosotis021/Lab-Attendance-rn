@@ -18,6 +18,7 @@ import {
 } from '../types';
 import AttendanceFeedbackModal from '../components/AttendanceFeedbackModal';
 import StudentHistoryCard from '../components/StudentHistoryCard';
+import { formatJakartaTime } from '../utils/timeUtils';
 
 export interface StudentAttendanceScreenProps {
   initialSession?: SessionItem;
@@ -323,6 +324,27 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
                 Silakan tunggu hingga asisten membuka sesi praktikum ini.
               </Text>
             </View>
+
+            {/* Tombol Ajukan Izin Langsung dari Halaman Sesi (Sprint 3) */}
+            <TouchableOpacity
+              style={styles.leaveButton}
+              onPress={() => {
+                router.push({
+                  pathname: '/leave-request-form',
+                  params: {
+                    sessionId: currentSession.id,
+                    courseTitle: currentSession.courseTitle,
+                    moduleName: currentSession.moduleName,
+                    classGroup: currentSession.classGroup,
+                    roomName: currentSession.roomName,
+                    timeSlot: currentSession.timeSlot,
+                  },
+                } as any);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.leaveButtonText}>✉️ Ajukan Izin untuk Sesi Ini</Text>
+            </TouchableOpacity>
           </View>
         ) : currentSession.status === 'SELESAI' ? (
           /* Gating 2: Session already ended */
@@ -862,6 +884,22 @@ const styles = StyleSheet.create({
   },
   attendanceLockedContainer: {
     width: '100%',
+  },
+  leaveButton: {
+    borderWidth: 1.5,
+    borderColor: '#0D9488',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    backgroundColor: '#F0FDFA',
+    marginTop: 12,
+    width: '100%',
+  },
+  leaveButtonText: {
+    color: '#0D9488',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
 

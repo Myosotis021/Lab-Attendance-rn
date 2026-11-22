@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import useAuth from '../hooks/useAuth';
@@ -39,10 +40,31 @@ export const LeaveRequestFormScreen: React.FC<LeaveRequestFormScreenProps> = ({
   onSuccessNavigate,
   onBack,
 }) => {
+  const params = useLocalSearchParams<{
+    sessionId?: string;
+    courseTitle?: string;
+    moduleName?: string;
+    classGroup?: string;
+    roomName?: string;
+    timeSlot?: string;
+  }>();
+
   const { profile } = useAuth('praktikan');
   const [sessions, setSessions] = useState<SessionOption[]>([]);
-  const [loadingSessions, setLoadingSessions] = useState<boolean>(true);
-  const [selectedSession, setSelectedSession] = useState<SessionOption | null>(null);
+  const [loadingSessions, setLoadingSessions] = useState<boolean>(!params.sessionId);
+  const [selectedSession, setSelectedSession] = useState<SessionOption | null>(
+    params.sessionId
+      ? {
+          id: params.sessionId,
+          courseTitle: params.courseTitle || 'Praktikum',
+          moduleName: params.moduleName || 'Modul',
+          classGroup: params.classGroup || '',
+          roomName: params.roomName || '',
+          timeSlot: params.timeSlot || '',
+          status: 'BELUM_DIBUKA',
+        }
+      : null
+  );
 
   const [reason, setReason] = useState<string>('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -241,8 +263,23 @@ export const LeaveRequestFormScreen: React.FC<LeaveRequestFormScreenProps> = ({
       <UserHeader profile={profile} />
 
       {/* Section 1: Choose Session */}
-      <Text style={styles.sectionLabel}>Pilih Sesi Praktikum (BELUM DIBUKA)</Text>
-      {loadingSessions ? (
+      <Text style={styles.sectionLabel}>
+        {params.sessionId ? 'Sesi Praktikum Terpilih' : 'Pilih Sesi Praktikum (BELUM DIBUKA)'}
+      </Text>
+      {params.sessionId && selectedSession ? (
+        <View style={[styles.sessionCard, styles.sessionCardSelected]}>
+          <View style={styles.sessionCardHeader}>
+            <Text style={styles.sessionCourseTitle}>{selectedSession.courseTitle}</Text>
+            <View style={styles.sessionStatusPill}>
+              <Text style={styles.sessionStatusText}>BELUM DIBUKA</Text>
+            </View>
+          </View>
+          <Text style={styles.sessionModuleName}>{selectedSession.moduleName}</Text>
+          {selectedSession.timeSlot ? (
+            <Text style={styles.sessionTimeSlot}>🕒 {selectedSession.timeSlot}</Text>
+          ) : null}
+        </View>
+      ) : loadingSessions ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="small" color="#2563EB" />
           <Text style={styles.loadingText}>Memuat sesi praktikum...</Text>

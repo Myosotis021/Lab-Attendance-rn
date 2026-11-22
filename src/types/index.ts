@@ -16,12 +16,16 @@ export interface UserProfile {
 
 export interface SessionItem {
   id: string;
+  classId?: string;
   courseTitle: string;
   moduleName: string;
   classGroup: string;
   roomName: string;
   timeSlot: string;
+  scheduledAt?: any;
+  scheduledEndAt?: any;
   status: SessionStatus;
+  participantIds?: string[];
 }
 
 export interface AttendanceRecord {

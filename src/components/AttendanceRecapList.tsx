@@ -7,6 +7,7 @@ import {
   ListRenderItem,
 } from 'react-native';
 import { AttendanceRecord, AttendanceStatus } from '../types';
+import { formatJakartaTime } from '../utils/timeUtils';
 
 export const INITIAL_ATTENDEES: AttendanceRecord[] = [
   {
@@ -97,7 +98,7 @@ export const AttendanceRecapList: React.FC<AttendanceRecapListProps> = ({
             <Text style={styles.studentNim}>NIM: {item.studentNim}</Text>
             <View style={styles.timeRow}>
               <Text style={styles.timeLabel}>Waktu:</Text>
-              <Text style={styles.timeValue}>{item.timestamp}</Text>
+              <Text style={styles.timeValue}>{formatJakartaTime(item.timestamp)}</Text>
             </View>
             {item.notes ? (
               <Text style={styles.notesText} numberOfLines={1}>

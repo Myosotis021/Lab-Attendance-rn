@@ -57,10 +57,8 @@ export const validateNim = (nim: string): string | null => {
     return 'NIM wajib diisi untuk praktikan';
   }
   const cleanNim = nim.trim();
-  // Hanya angka, 8 sampai 20 digit
-  const nimRegex = /^\d{8,20}$/;
-  if (!nimRegex.test(cleanNim)) {
-    return 'NIM harus berupa angka (8-20 digit)';
+  if (!/^\d{14}$/.test(cleanNim)) {
+    return 'NIM harus berupa tepat 14 digit angka';
   }
   return null;
 };

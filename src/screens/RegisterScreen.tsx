@@ -208,7 +208,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   <Text style={styles.label}>Nomor Induk Mahasiswa (NIM) *</Text>
                   <TextInput
                     style={[styles.input, nimError ? styles.inputError : null]}
-                    placeholder="Contoh: 2101010001"
+                    placeholder="Contoh: 24060124130122"
                     placeholderTextColor={theme.colors.textMuted}
                     value={nim}
                     onChangeText={(text) => {
@@ -217,6 +217,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       if (generalError) setGeneralError(null);
                     }}
                     keyboardType="number-pad"
+                    maxLength={14}
                     editable={!isSubmitting}
                   />
                   {nimError ? (

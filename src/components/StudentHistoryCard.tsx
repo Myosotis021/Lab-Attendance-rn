@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { AttendanceRecord, AttendanceStatus } from '../types';
 import { formatAttendanceTime } from '../services/attendanceService';
+import { formatJakartaTime } from '../utils/timeUtils';
 import { theme } from '../theme';
 
 interface StudentHistoryCardProps {
@@ -74,7 +75,9 @@ export const StudentHistoryCard: React.FC<StudentHistoryCardProps> = ({
         <Text style={styles.calloutText}>
           Anda telah berhasil presensi pada{' '}
           <Text style={styles.calloutBold}>
-            {attendance.timestamp || formatAttendanceTime(attendance.createdAt)}
+            {attendance.timestamp
+              ? formatJakartaTime(attendance.timestamp)
+              : formatAttendanceTime(attendance.createdAt)}
           </Text>{' '}
           - Status:{' '}
           <Text style={[styles.calloutBold, { color: badgeStyle.text }]}>

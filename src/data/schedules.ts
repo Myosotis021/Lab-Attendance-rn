@@ -9,6 +9,8 @@ export interface SessionItem {
   classGroup: string;
   roomName: string;
   timeSlot: string;
+  scheduledAt?: any;
+  scheduledEndAt?: any;
   status: SessionStatus;
 }
 

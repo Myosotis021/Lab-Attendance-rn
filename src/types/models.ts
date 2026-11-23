@@ -24,7 +24,7 @@ export interface ClassItem {
   courseTitle: string;
   classGroup: string;
   roomName: string;
-  participantIds: string[]; // uid praktikan
+  participantIds: string[];
   createdBy: string;
   createdAt: Timestamp;
 }
@@ -37,8 +37,10 @@ export interface SessionItem {
   classGroup: string;
   roomName: string;
   timeSlot: string;
+  scheduledAt?: Timestamp;
+  scheduledEndAt?: Timestamp;
   status: SessionStatus;
-  participantIds: string[]; // salinan dari kelas
+  participantIds: string[];
   createdBy: string;
   createdAt: Timestamp;
 }
@@ -50,6 +52,8 @@ export interface SessionDoc {
   moduleName: string;
   roomName: string;
   timeSlot: string;
+  scheduledAt?: Timestamp;
+  scheduledEndAt?: Timestamp;
   status: SessionStatus;
   participantIds?: string[];
   openedAt?: any;
@@ -67,7 +71,7 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
   notes: string;
   createdAt: Timestamp;
-  timestamp?: string; // Tampilan teks format waktu
+  timestamp?: string;
 }
 
 export interface SentimentResult {
@@ -93,4 +97,11 @@ export interface LeaveRequest {
   decidedAt: Timestamp | null;
   assistantNote: string;
   createdAt: Timestamp;
+}
+
+export interface FcmTokenDoc {
+  uid: string;
+  token: string;
+  platform: 'android' | 'ios';
+  updatedAt: any;
 }

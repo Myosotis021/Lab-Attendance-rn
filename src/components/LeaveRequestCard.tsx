@@ -4,6 +4,7 @@ import { LeaveRequest } from '../types/models';
 import LeaveStatusBadge from './LeaveStatusBadge';
 import SentimentBadge from './SentimentBadge';
 import { theme } from '../theme';
+import { formatJakartaTime } from '../utils/timeUtils';
 
 interface LeaveRequestCardProps {
   item: LeaveRequest;
@@ -17,19 +18,7 @@ export const LeaveRequestCard: React.FC<LeaveRequestCardProps> = ({
   actions,
 }) => {
   const formatTime = (ts: any): string => {
-    if (!ts) return '-';
-    try {
-      const date = ts.toDate ? ts.toDate() : (ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts));
-      return date.toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return '-';
-    }
+    return formatJakartaTime(ts);
   };
 
   const isDecided = item.status === 'DITERIMA' || item.status === 'DITOLAK';

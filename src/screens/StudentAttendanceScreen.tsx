@@ -807,6 +807,22 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     flex: 1,
   },
+  leaveButton: {
+    borderWidth: 1.5,
+    borderColor: '#0D9488',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    backgroundColor: '#F0FDFA',
+    marginTop: 12,
+    width: '100%',
+  },
+  leaveButtonText: {
+    color: '#0D9488',
+    fontSize: 13,
+    fontWeight: '700',
+  },
 });
 
 export default StudentAttendanceScreen;

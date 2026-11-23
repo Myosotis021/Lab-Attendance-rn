@@ -46,8 +46,20 @@ export const LeaveRequestFormScreen: React.FC<LeaveRequestFormScreenProps> = ({
 }) => {
   const { profile } = useAuth();
   const [sessions, setSessions] = useState<SessionOption[]>([]);
-  const [loadingSessions, setLoadingSessions] = useState<boolean>(true);
-  const [selectedSession, setSelectedSession] = useState<SessionOption | null>(null);
+  const [loadingSessions, setLoadingSessions] = useState<boolean>(!params.sessionId);
+  const [selectedSession, setSelectedSession] = useState<SessionOption | null>(
+    params.sessionId
+      ? {
+          id: params.sessionId,
+          courseTitle: params.courseTitle || 'Praktikum',
+          moduleName: params.moduleName || 'Modul',
+          classGroup: params.classGroup || '',
+          roomName: params.roomName || '',
+          timeSlot: params.timeSlot || '',
+          status: 'BELUM_DIBUKA',
+        }
+      : null
+  );
 
   const [reason, setReason] = useState<string>('');
   const [validationError, setValidationError] = useState<string | null>(null);

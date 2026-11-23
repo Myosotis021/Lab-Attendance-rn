@@ -1,4 +1,4 @@
-// Kontrak Tipe Data Bersama untuk Sprint 2
+// Kontrak Tipe Data Bersama untuk Sprint 2 & 3
 // Digunakan oleh: PM, Developer 1, Developer 2, dan Developer 3
 
 import { RoleType } from './models';

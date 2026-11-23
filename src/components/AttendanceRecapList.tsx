@@ -10,6 +10,7 @@ import { Feather } from '@expo/vector-icons';
 import { AttendanceRecord, AttendanceStatus } from '../types';
 import { formatAttendanceTime } from '../services/attendanceService';
 import { Timestamp } from 'firebase/firestore';
+import { formatJakartaTime } from '../utils/timeUtils';
 import { theme } from '../theme';
 
 export const INITIAL_ATTENDEES: AttendanceRecord[] = [

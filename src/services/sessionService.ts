@@ -2,9 +2,11 @@ import {
   collection,
   doc,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   getDoc,
+  query,
   onSnapshot,
   runTransaction,
   serverTimestamp,
@@ -12,6 +14,8 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { SessionItem, SessionStatus } from '../types/models';
+import { isSessionTimeReached, formatJakartaTime } from '../utils/timeUtils';
+import { sendPushToUsers } from './notificationService';
 
 /**
  * Menambahkan sesi praktikum baru
@@ -26,6 +30,8 @@ export async function createSession(data: {
   timeSlot: string;
   participantIds: string[];
   createdBy: string;
+  scheduledAt?: Timestamp;
+  scheduledEndAt?: Timestamp;
 }): Promise<string> {
   const docRef = await addDoc(collection(db, 'sessions'), {
     classId: data.classId,
@@ -37,6 +43,8 @@ export async function createSession(data: {
     status: 'BELUM_DIBUKA' as SessionStatus,
     participantIds: data.participantIds || [],
     createdBy: data.createdBy,
+    ...(data.scheduledAt ? { scheduledAt: data.scheduledAt } : {}),
+    ...(data.scheduledEndAt ? { scheduledEndAt: data.scheduledEndAt } : {}),
     createdAt: serverTimestamp(),
   });
   return docRef.id;
@@ -99,7 +107,8 @@ export async function deleteSession(id: string): Promise<void> {
 }
 
 /**
- * Mengubah status sesi praktikum secara berurutan dan atomik
+ * Mengubah status sesi praktikum.
+ * Disertai validasi waktu mulai (scheduledAt) dan push notification trigger.
  * BELUM_DIBUKA -> BERJALAN
  * BERJALAN -> SELESAI
  * Sesi SELESAI tidak dapat dibuka lagi
@@ -110,6 +119,24 @@ export async function setSessionStatus(
 ): Promise<void> {
   const sessionRef = doc(db, 'sessions', id);
 
+  // Ambil data sesi untuk validasi waktu dan notification
+  const snap = await getDoc(sessionRef);
+  if (!snap.exists()) {
+    throw new Error('Dokumen sesi tidak ditemukan.');
+  }
+
+  const sessionData = snap.data();
+
+  // Validasi waktu saat membuka sesi (toleransi 5 menit lebih awal)
+  if (newStatus === 'BERJALAN') {
+    const scheduledAt = sessionData.scheduledAt as Timestamp | undefined;
+    if (scheduledAt && !isSessionTimeReached(scheduledAt)) {
+      const formatted = formatJakartaTime(scheduledAt);
+      throw new Error(`Sesi belum dapat dibuka. Jadwal dimulai: ${formatted}`);
+    }
+  }
+
+  // Update status dengan transaksi (atomik)
   await runTransaction(db, async (transaction) => {
     const sessionDoc = await transaction.get(sessionRef);
     if (!sessionDoc.exists()) {
@@ -122,27 +149,94 @@ export async function setSessionStatus(
       throw new Error('Sesi telah selesai dan tidak dapat diubah statusnya lagi.');
     }
 
-    if (newStatus === 'BERJALAN') {
-      if (currentStatus !== 'BELUM_DIBUKA') {
-        throw new Error(
-          `Tidak dapat membuka sesi. Status saat ini adalah: ${currentStatus}`
-        );
-      }
-    } else if (newStatus === 'SELESAI') {
-      if (currentStatus !== 'BERJALAN') {
-        throw new Error(
-          `Tidak dapat menutup sesi. Status saat ini adalah: ${currentStatus}`
-        );
-      }
-    } else {
-      throw new Error(`Transisi ke status ${newStatus} tidak diperbolehkan.`);
+    if (newStatus === 'BERJALAN' && currentStatus !== 'BELUM_DIBUKA') {
+      throw new Error(`Tidak dapat membuka sesi. Status saat ini: ${currentStatus}`);
     }
 
-    transaction.update(sessionRef, {
+    if (newStatus === 'SELESAI' && currentStatus !== 'BERJALAN') {
+      throw new Error(`Tidak dapat menutup sesi. Status saat ini: ${currentStatus}`);
+    }
+
+    const updates: Record<string, any> = {
       status: newStatus,
       updatedAt: serverTimestamp(),
-    });
+    };
+    if (newStatus === 'BERJALAN') updates.openedAt = serverTimestamp();
+    if (newStatus === 'SELESAI') updates.closedAt = serverTimestamp();
+
+    transaction.update(sessionRef, updates);
   });
+
+  // Kirim push notification ke peserta
+  const participantIds = (sessionData.participantIds as string[]) || [];
+  const courseTitle = sessionData.courseTitle || 'Praktikum';
+
+  if (participantIds.length > 0) {
+    if (newStatus === 'BERJALAN') {
+      await sendPushToUsers(
+        participantIds,
+        `Sesi ${courseTitle} Telah Dibuka!`,
+        `Segera lakukan presensi sebelum sesi berakhir.`,
+        { type: 'SESSION_OPENED', sessionId: id }
+      );
+    } else if (newStatus === 'SELESAI') {
+      await sendPushToUsers(
+        participantIds,
+        `Sesi Ditutup`,
+        `Sesi ${courseTitle} telah ditutup oleh asisten.`,
+        { type: 'SESSION_CLOSED', sessionId: id }
+      );
+    }
+  }
+}
+
+/**
+ * Ganti jadwal sesi praktikum (BUG-03)
+ * Hanya dapat diubah saat status masih BELUM_DIBUKA dan waktu di masa depan.
+ */
+export async function rescheduleSession(
+  id: string,
+  data: {
+    scheduledAt: Timestamp;
+    scheduledEndAt: Timestamp;
+    timeSlot: string;
+  }
+): Promise<void> {
+  const sessionRef = doc(db, 'sessions', id);
+  const snap = await getDoc(sessionRef);
+
+  if (!snap.exists()) {
+    throw new Error('Sesi tidak ditemukan.');
+  }
+
+  const sessionData = snap.data();
+  if (sessionData.status !== 'BELUM_DIBUKA') {
+    throw new Error('Jadwal hanya dapat diubah selama sesi belum dibuka.');
+  }
+
+  if (data.scheduledAt.toDate() <= new Date()) {
+    throw new Error('Waktu mulai sesi harus di masa yang akan datang.');
+  }
+
+  await updateDoc(sessionRef, {
+    scheduledAt: data.scheduledAt,
+    scheduledEndAt: data.scheduledEndAt,
+    timeSlot: data.timeSlot,
+    updatedAt: serverTimestamp(),
+  });
+
+  // Kirim notifikasi perubahan jadwal
+  const participantIds = (sessionData.participantIds as string[]) || [];
+  const courseTitle = sessionData.courseTitle || 'Praktikum';
+
+  if (participantIds.length > 0) {
+    await sendPushToUsers(
+      participantIds,
+      `Perubahan Jadwal Sesi`,
+      `Jadwal ${courseTitle} diubah ke ${data.timeSlot}.`,
+      { type: 'SCHEDULE_CHANGED', sessionId: id }
+    );
+  }
 }
 
 /**
@@ -170,6 +264,8 @@ export function listenSession(
         classGroup: data.classGroup || '',
         roomName: data.roomName || '',
         timeSlot: data.timeSlot || '',
+        scheduledAt: data.scheduledAt,
+        scheduledEndAt: data.scheduledEndAt,
         status: data.status || 'BELUM_DIBUKA',
         participantIds: Array.isArray(data.participantIds) ? data.participantIds : [],
         createdBy: data.createdBy || '',
@@ -179,6 +275,29 @@ export function listenSession(
     (err) => {
       console.error('Error listenSession:', err);
       onError?.(err);
+    }
+  );
+}
+
+/**
+ * Real-time listener untuk daftar sesi
+ */
+export function listenSessions(
+  onUpdate: (sessions: SessionItem[]) => void,
+  onError?: (err: any) => void
+): () => void {
+  const q = query(collection(db, 'sessions'));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const items: SessionItem[] = [];
+      snap.forEach((d) => {
+        items.push({ id: d.id, ...d.data() } as SessionItem);
+      });
+      onUpdate(items);
+    },
+    (err) => {
+      if (onError) onError(err);
     }
   );
 }

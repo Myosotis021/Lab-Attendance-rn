@@ -13,6 +13,7 @@ import {
 import { db } from './firebase';
 import { LeaveRequest, LeaveStatus } from '../types/models';
 import { analyzeReason } from './sentimentService';
+import { sendPushToUser } from './notificationService';
 
 export interface SubmitLeaveParams {
   session: {
@@ -184,6 +185,7 @@ export async function decideLeaveRequest(
   assistantNote: string = ''
 ): Promise<void> {
   const docRef = doc(db, 'leaveRequests', requestId);
+  const snap = await getDoc(docRef);
 
   await updateDoc(docRef, {
     status: decision,
@@ -191,5 +193,30 @@ export async function decideLeaveRequest(
     decidedAt: serverTimestamp(),
     assistantNote: assistantNote.trim(),
   });
+
+  // Trigger push notification ke praktikan pengaju izin (SRS-06)
+  if (snap.exists()) {
+    const data = snap.data();
+    const studentUid = data.uid as string;
+    const courseTitle = data.courseTitle || 'Praktikum';
+
+    if (studentUid) {
+      if (decision === 'DITERIMA') {
+        await sendPushToUser(
+          studentUid,
+          'Pengajuan Izin Diterima',
+          `Pengajuan izin Anda untuk ${courseTitle} diterima oleh asisten.`,
+          { type: 'LEAVE_DECISION', status: 'DITERIMA', requestId }
+        );
+      } else {
+        await sendPushToUser(
+          studentUid,
+          'Pengajuan Izin Ditolak',
+          `Pengajuan izin Anda untuk ${courseTitle} ditolak. Lihat catatan asisten.`,
+          { type: 'LEAVE_DECISION', status: 'DITOLAK', requestId }
+        );
+      }
+    }
+  }
 }
 

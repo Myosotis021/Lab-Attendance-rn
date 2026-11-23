@@ -8,6 +8,7 @@ export const MOCK_USERS: Record<RoleType, UserProfile> = {
     name: 'Kak Budi Santoso',
     identifier: 'AST-01',
     role: 'asisten',
+    roles: ['asisten'],
     email: 'asisten@lab.ac.id',
     classId: 'class-ti-01',
   },
@@ -17,6 +18,7 @@ export const MOCK_USERS: Record<RoleType, UserProfile> = {
     nim: '220101001',
     identifier: '220101001',
     role: 'praktikan',
+    roles: ['praktikan'],
     email: 'ahmad@mhs.ac.id',
     classId: 'class-ti-01',
   },
@@ -64,9 +66,18 @@ export function useAuth(defaultRole?: RoleType) {
   const role: RoleType = profile.role || (defaultRole || mockRole);
   const loading = authContext ? authContext.loading : false;
 
-  const switchRole = (newRole: RoleType) => {
+  const switchRole = async (newRole: RoleType) => {
+    if (authContext?.switchRole) {
+      await authContext.switchRole(newRole);
+    }
     setGlobalActiveRole(newRole);
     setMockRole(newRole);
+  };
+
+  const addRole = async (newRole: RoleType, extraNim?: string) => {
+    if (authContext?.addRole) {
+      await authContext.addRole(newRole, extraNim);
+    }
   };
 
   const setProfile = (newProfile: UserProfile) => {
@@ -84,6 +95,7 @@ export function useAuth(defaultRole?: RoleType) {
     loading,
     role,
     switchRole,
+    addRole,
     setProfile,
     login: authContext?.login || (async () => {}),
     register: authContext?.register || (async () => {}),

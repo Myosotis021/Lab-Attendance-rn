@@ -9,18 +9,21 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { UserProfile } from '../types/models';
+import { getRoleLabel } from '../utils/labelUtils';
 import { theme } from '../theme';
 
 export interface UserHeaderProps {
   profile?: UserProfile | null;
   onSwitchRole?: (nextRole: 'asisten' | 'praktikan') => void;
   onLogout?: () => void;
+  onPressMenu?: () => void;
 }
 
 export const UserHeader: React.FC<UserHeaderProps> = ({
   profile: propProfile,
   onSwitchRole,
   onLogout,
+  onPressMenu,
 }) => {
   let contextProfile: UserProfile | null = null;
   let contextLogout: (() => Promise<void>) | undefined;
@@ -71,14 +74,19 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
     );
   };
 
-  const roleLabel = isAsisten ? 'Asisten Lab' : 'Praktikan';
+  const roleLabel = getRoleLabel(profile.role);
 
   return (
     <View style={styles.headerCard}>
-      {/* Left Icon Button: Menu / User */}
-      <View style={styles.iconButton}>
+      {/* Left Icon Button: Hamburger Menu */}
+      <TouchableOpacity
+        style={styles.iconButton}
+        onPress={onPressMenu}
+        activeOpacity={0.7}
+        accessibilityLabel="Menu Navigasi"
+      >
         <Feather name="menu" size={20} color={theme.colors.textPrimary} />
-      </View>
+      </TouchableOpacity>
 
       {/* Center Greeting & Role */}
       <View style={styles.centerGreeting}>

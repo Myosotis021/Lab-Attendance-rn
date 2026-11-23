@@ -114,21 +114,11 @@ export const StudentHistoryCard: React.FC<StudentHistoryCardProps> = ({
         ) : null}
 
         {attendance.notes ? (
-          <>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Nomor Meja Lab</Text>
-              <Text style={styles.detailValue}>{attendance.notes}</Text>
-            </View>
-            <View style={styles.divider} />
-          </>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Nomor Meja Lab</Text>
+            <Text style={styles.detailValue}>{attendance.notes}</Text>
+          </View>
         ) : null}
-
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>ID Kehadiran</Text>
-          <Text style={styles.detailValueMono} numberOfLines={1}>
-            {attendance.id}
-          </Text>
-        </View>
       </View>
 
       {/* Action Buttons */}

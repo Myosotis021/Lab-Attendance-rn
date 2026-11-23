@@ -9,10 +9,12 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { ClassItem, UserProfile } from '../types/models';
 import { getStudents } from '../services/classService';
+import { useAuth } from '../hooks/useAuth';
 import { theme } from '../theme';
 
 interface ClassFormModalProps {
@@ -81,17 +83,29 @@ const ClassFormContent: React.FC<FormContentProps> = ({
     };
   }, []);
 
+  const { profile } = useAuth();
+
   const toggleStudent = (uid: string) => {
+    if (profile?.uid && uid === profile.uid) {
+      Alert.alert(
+        'Peringatan',
+        'Anda tidak dapat menambahkan diri sendiri sebagai peserta kelas.'
+      );
+      return;
+    }
     setParticipantIds((prev) =>
       prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]
     );
   };
 
   const handleSelectAllStudents = () => {
-    if (participantIds.length === availableStudents.length) {
+    if (participantIds.length > 0) {
       setParticipantIds([]);
     } else {
-      setParticipantIds(availableStudents.map((s) => s.uid));
+      const allowed = availableStudents
+        .map((s) => s.uid)
+        .filter((uid) => !profile?.uid || uid !== profile.uid);
+      setParticipantIds(allowed);
     }
   };
 
@@ -110,6 +124,12 @@ const ClassFormContent: React.FC<FormContentProps> = ({
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      return;
+    }
+
+    if (profile?.uid && participantIds.includes(profile.uid)) {
+      setErrors({ submit: 'Anda tidak dapat menambahkan diri sendiri sebagai peserta kelas.' });
+      Alert.alert('Peringatan', 'Anda tidak dapat menambahkan diri sendiri sebagai peserta kelas.');
       return;
     }
 

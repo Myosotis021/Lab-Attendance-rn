@@ -129,21 +129,11 @@ export const AttendanceFeedbackModal: React.FC<AttendanceFeedbackModalProps> = (
             ) : null}
 
             {attendanceData.notes ? (
-              <>
-                <View style={styles.tableRow}>
-                  <Text style={styles.rowLabel}>Nomor Meja Lab</Text>
-                  <Text style={styles.rowValue}>{attendanceData.notes}</Text>
-                </View>
-                <View style={styles.divider} />
-              </>
+              <View style={styles.tableRow}>
+                <Text style={styles.rowLabel}>Nomor Meja Lab</Text>
+                <Text style={styles.rowValue}>{attendanceData.notes}</Text>
+              </View>
             ) : null}
-
-            <View style={styles.tableRow}>
-              <Text style={styles.rowLabel}>ID Presensi</Text>
-              <Text style={styles.rowValueMono} numberOfLines={1}>
-                {attendanceData.id}
-              </Text>
-            </View>
           </View>
 
           {/* Close Button */}

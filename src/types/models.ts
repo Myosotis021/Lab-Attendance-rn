@@ -12,6 +12,7 @@ export interface UserProfile {
   name: string;
   email?: string;
   role: RoleType;
+  roles: Role[];
   nim?: string | null;
   identifier?: string;
   classId?: string;

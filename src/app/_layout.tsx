@@ -55,6 +55,13 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="role-management"
+          options={{
+            title: 'Kelola Peran',
+            headerShown: false,
+          }}
+        />
       </Stack>
     </AuthProvider>
   );

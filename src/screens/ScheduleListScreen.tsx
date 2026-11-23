@@ -15,6 +15,7 @@ import { SessionCard } from '../components/SessionCard';
 import { UserHeader } from '../components/UserHeader';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
+import { HamburgerMenu } from '../components/HamburgerMenu';
 import { SessionItem, RoleType } from '../types/models';
 import { useAuth } from '../hooks/useAuth';
 import { useSessions } from '../hooks/useSessions';
@@ -33,6 +34,7 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
   const { profile, switchRole, logout } = useAuth();
   const { sessions, loading, error, refresh } = useSessions();
   const [activeTab, setActiveTab] = useState<TabFilter>('SEMUA');
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const isAsisten = profile.role === 'asisten';
 
@@ -94,6 +96,13 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
           profile={profile}
           onSwitchRole={(nextRole) => switchRole(nextRole)}
           onLogout={logout}
+          onPressMenu={() => setMenuVisible(true)}
+        />
+
+        {/* Hamburger Menu Drawer */}
+        <HamburgerMenu
+          visible={menuVisible}
+          onClose={() => setMenuVisible(false)}
         />
 
         <ScrollView
@@ -146,7 +155,7 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
                   activeTab === 'BERJALAN' && styles.pillTabTextActive,
                 ]}
               >
-                Berjalan
+                Sedang Berlangsung
               </Text>
             </TouchableOpacity>
 

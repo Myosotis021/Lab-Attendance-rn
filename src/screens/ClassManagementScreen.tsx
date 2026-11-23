@@ -103,13 +103,27 @@ export const ClassManagementScreen: React.FC = () => {
     roomName: string;
     participantIds: string[];
   }) => {
-    if (selectedClass) {
-      await updateClass(selectedClass.id, data);
-    } else {
-      await createClass({
-        ...data,
-        createdBy: profile.name || 'Asisten',
-      });
+    try {
+      if (profile?.uid && data.participantIds.includes(profile.uid)) {
+        Alert.alert(
+          'Validasi Gagal',
+          'Anda tidak dapat menambahkan diri sendiri sebagai peserta kelas.'
+        );
+        throw new Error('Anda tidak dapat menambahkan diri sendiri sebagai peserta kelas.');
+      }
+      if (selectedClass) {
+        await updateClass(selectedClass.id, data, profile?.uid);
+      } else {
+        await createClass({
+          ...data,
+          createdBy: profile?.name || 'Asisten',
+          currentUserId: profile?.uid,
+        });
+      }
+    } catch (err: unknown) {
+      const msg = getErrorMessage(err);
+      Alert.alert('Gagal Menyimpan Kelas', msg);
+      throw err;
     }
   };
 

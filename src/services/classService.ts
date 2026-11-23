@@ -9,6 +9,7 @@ import {
   where,
   onSnapshot,
   writeBatch,
+  arrayUnion,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
@@ -21,6 +22,7 @@ export const SEED_STUDENTS: UserProfile[] = [
     name: 'Ahmad Fauzi',
     nim: '220101001',
     role: 'praktikan',
+    roles: ['praktikan'],
     email: 'ahmad@mhs.ac.id',
   },
   {
@@ -28,6 +30,7 @@ export const SEED_STUDENTS: UserProfile[] = [
     name: 'Siti Rahma',
     nim: '220101015',
     role: 'praktikan',
+    roles: ['praktikan'],
     email: 'siti@mhs.ac.id',
   },
   {
@@ -35,6 +38,7 @@ export const SEED_STUDENTS: UserProfile[] = [
     name: 'Dimas Pratama',
     nim: '220101032',
     role: 'praktikan',
+    roles: ['praktikan'],
     email: 'dimas@mhs.ac.id',
   },
   {
@@ -42,6 +46,7 @@ export const SEED_STUDENTS: UserProfile[] = [
     name: 'Putri Ayu',
     nim: '220101048',
     role: 'praktikan',
+    roles: ['praktikan'],
     email: 'putri@mhs.ac.id',
   },
 ];
@@ -54,10 +59,20 @@ export async function getStudents(): Promise<UserProfile[]> {
     const q = query(collection(db, 'users'), where('role', '==', 'praktikan'));
     const snapshot = await getDocs(q);
     if (!snapshot.empty) {
-      return snapshot.docs.map((d) => ({
-        uid: d.id,
-        ...(d.data() as Omit<UserProfile, 'uid'>),
-      }));
+      return snapshot.docs.map((d) => {
+        const data = d.data();
+        return {
+          uid: d.id,
+          name: data.name || '',
+          email: data.email || '',
+          nim: data.nim || null,
+          role: data.role || 'praktikan',
+          roles: Array.isArray(data.roles) && data.roles.length > 0 ? data.roles : [data.role || 'praktikan'],
+          identifier: data.identifier,
+          classId: data.classId,
+          createdAt: data.createdAt,
+        } as UserProfile;
+      });
     }
   } catch (err) {
     console.warn('Gagal memuat pengguna praktikan dari Firestore, menggunakan fallback seed:', err);
@@ -98,6 +113,24 @@ export function listenClasses(
 }
 
 /**
+ * Menambah peserta ke kelas dengan validasi asprak tidak dapat menambahkan diri sendiri
+ */
+export async function addParticipantToClass(
+  classId: string,
+  participantUid: string,
+  currentUserId: string
+): Promise<void> {
+  if (participantUid === currentUserId) {
+    throw new Error('Anda tidak dapat menambahkan diri sendiri sebagai peserta kelas.');
+  }
+  const classRef = doc(db, 'classes', classId);
+  await updateDoc(classRef, {
+    participantIds: arrayUnion(participantUid),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
  * Menambah kelas baru
  */
 export async function createClass(data: {
@@ -106,7 +139,12 @@ export async function createClass(data: {
   roomName: string;
   participantIds: string[];
   createdBy: string;
+  currentUserId?: string;
 }): Promise<string> {
+  if (data.currentUserId && data.participantIds.includes(data.currentUserId)) {
+    throw new Error('Anda tidak dapat menambahkan diri sendiri sebagai peserta kelas.');
+  }
+
   const docRef = await addDoc(collection(db, 'classes'), {
     courseTitle: data.courseTitle.trim(),
     classGroup: data.classGroup.trim(),
@@ -128,8 +166,13 @@ export async function updateClass(
     classGroup?: string;
     roomName?: string;
     participantIds?: string[];
-  }
+  },
+  currentUserId?: string
 ): Promise<void> {
+  if (currentUserId && data.participantIds && data.participantIds.includes(currentUserId)) {
+    throw new Error('Anda tidak dapat menambahkan diri sendiri sebagai peserta kelas.');
+  }
+
   const classRef = doc(db, 'classes', id);
 
   // Jika participantIds diperbarui, sinkronkan ke semua sesi milik kelas ini dalam 1 writeBatch

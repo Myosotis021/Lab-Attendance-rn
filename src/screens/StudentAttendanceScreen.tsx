@@ -32,6 +32,7 @@ import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
 import { getErrorMessage } from '../utils/getErrorMessage';
 import { theme } from '../theme';
+import { getSessionStatusLabel, getRoleLabel } from '../utils/labelUtils';
 
 export interface StudentAttendanceScreenProps {
   initialSession?: SessionItem;
@@ -45,28 +46,28 @@ const getSessionBadgeStyle = (status: SessionStatus) => {
         bg: theme.colors.status.belumDibuka.bg,
         text: theme.colors.status.belumDibuka.text,
         border: theme.colors.status.belumDibuka.border,
-        label: 'BELUM DIBUKA',
+        label: getSessionStatusLabel('BELUM_DIBUKA'),
       };
     case 'BERJALAN':
       return {
         bg: theme.colors.status.berjalan.bg,
         text: theme.colors.status.berjalan.text,
         border: theme.colors.status.berjalan.border,
-        label: 'BERJALAN',
+        label: getSessionStatusLabel('BERJALAN'),
       };
     case 'SELESAI':
       return {
         bg: theme.colors.status.selesai.bg,
         text: theme.colors.status.selesai.text,
         border: theme.colors.status.selesai.border,
-        label: 'SELESAI',
+        label: getSessionStatusLabel('SELESAI'),
       };
     default:
       return {
         bg: theme.colors.surfaceSubtle,
         text: theme.colors.textSecondary,
         border: theme.colors.border,
-        label: status,
+        label: getSessionStatusLabel(status),
       };
   }
 };
@@ -199,7 +200,7 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
     if (currentSession.status !== 'BERJALAN') {
       Alert.alert(
         'Sesi Belum Dibuka',
-        'Presensi hanya dapat dilakukan ketika sesi praktikum berstatus BERJALAN.'
+        'Presensi hanya dapat dilakukan ketika sesi praktikum sedang berlangsung.'
       );
       return;
     }

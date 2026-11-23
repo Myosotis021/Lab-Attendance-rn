@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { RoleType, SessionItem, SessionStatus } from '../types';
+import { getSessionStatusLabel } from '../utils/labelUtils';
 import { theme } from '../theme';
 
 interface SessionCardProps {
@@ -19,19 +20,19 @@ interface StatusBadgeConfig {
 
 const STATUS_CONFIG: Record<SessionStatus, StatusBadgeConfig> = {
   BELUM_DIBUKA: {
-    label: 'BELUM DIBUKA',
+    label: getSessionStatusLabel('BELUM_DIBUKA'),
     backgroundColor: theme.colors.status.belumDibuka.bg,
     textColor: theme.colors.status.belumDibuka.text,
     borderColor: theme.colors.status.belumDibuka.border,
   },
   BERJALAN: {
-    label: 'BERJALAN',
+    label: getSessionStatusLabel('BERJALAN'),
     backgroundColor: theme.colors.status.berjalan.bg,
     textColor: theme.colors.status.berjalan.text,
     borderColor: theme.colors.status.berjalan.border,
   },
   SELESAI: {
-    label: 'SELESAI',
+    label: getSessionStatusLabel('SELESAI'),
     backgroundColor: theme.colors.status.selesai.bg,
     textColor: theme.colors.status.selesai.text,
     borderColor: theme.colors.status.selesai.border,

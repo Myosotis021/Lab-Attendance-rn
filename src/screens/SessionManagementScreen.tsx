@@ -26,6 +26,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { SessionFormModal } from '../components/SessionFormModal';
 import { getErrorMessage } from '../utils/getErrorMessage';
+import { getSessionStatusLabel } from '../utils/labelUtils';
 import { theme } from '../theme';
 
 const STATUS_CONFIG: Record<
@@ -33,19 +34,19 @@ const STATUS_CONFIG: Record<
   { label: string; bg: string; text: string; border: string }
 > = {
   BELUM_DIBUKA: {
-    label: 'BELUM DIBUKA',
+    label: getSessionStatusLabel('BELUM_DIBUKA'),
     bg: theme.colors.status.belumDibuka.bg,
     text: theme.colors.status.belumDibuka.text,
     border: theme.colors.status.belumDibuka.border,
   },
   BERJALAN: {
-    label: 'BERJALAN',
+    label: getSessionStatusLabel('BERJALAN'),
     bg: theme.colors.status.berjalan.bg,
     text: theme.colors.status.berjalan.text,
     border: theme.colors.status.berjalan.border,
   },
   SELESAI: {
-    label: 'SELESAI',
+    label: getSessionStatusLabel('SELESAI'),
     bg: theme.colors.status.selesai.bg,
     text: theme.colors.status.selesai.text,
     border: theme.colors.status.selesai.border,

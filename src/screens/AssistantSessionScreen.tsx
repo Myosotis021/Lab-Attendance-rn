@@ -22,6 +22,7 @@ import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
 import { useAuth } from '../hooks/useAuth';
 import { getErrorMessage } from '../utils/getErrorMessage';
+import { getSessionStatusLabel } from '../utils/labelUtils';
 import { theme } from '../theme';
 
 export interface AssistantSessionScreenProps {
@@ -114,25 +115,25 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
     switch (status) {
       case 'BELUM_DIBUKA':
         return {
-          label: 'BELUM DIBUKA',
+          label: getSessionStatusLabel('BELUM_DIBUKA'),
           containerStyle: styles.badgeBelumDibuka,
           textStyle: styles.badgeTextBelumDibuka,
         };
       case 'BERJALAN':
         return {
-          label: 'BERJALAN',
+          label: getSessionStatusLabel('BERJALAN'),
           containerStyle: styles.badgeBerjalan,
           textStyle: styles.badgeTextBerjalan,
         };
       case 'SELESAI':
         return {
-          label: 'SELESAI',
+          label: getSessionStatusLabel('SELESAI'),
           containerStyle: styles.badgeSelesai,
           textStyle: styles.badgeTextSelesai,
         };
       default:
         return {
-          label: status,
+          label: getSessionStatusLabel(status),
           containerStyle: styles.badgeBelumDibuka,
           textStyle: styles.badgeTextBelumDibuka,
         };

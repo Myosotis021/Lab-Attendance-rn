@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import useAuth from '../hooks/useAuth';
@@ -45,6 +46,14 @@ export const LeaveRequestFormScreen: React.FC<LeaveRequestFormScreenProps> = ({
   onBack,
 }) => {
   const { profile } = useAuth();
+  const params = useLocalSearchParams<{
+    sessionId?: string;
+    courseTitle?: string;
+    moduleName?: string;
+    classGroup?: string;
+    roomName?: string;
+    timeSlot?: string;
+  }>();
   const [sessions, setSessions] = useState<SessionOption[]>([]);
   const [loadingSessions, setLoadingSessions] = useState<boolean>(!params.sessionId);
   const [selectedSession, setSelectedSession] = useState<SessionOption | null>(

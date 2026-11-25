@@ -1,30 +1,76 @@
-// src/data/labLocations.ts (hanya untuk seeding / referensi)
-export const LAB_LOCATIONS_SEED = [
+import { PredefinedLab, SessionType } from '../types/models';
+
+export const DEFAULT_ATTENDANCE_RADIUS_METERS = 150;
+
+/**
+ * Daftar 4 lab resmi beserta koordinat & radius 150m sesuai ketetapan PM:
+ * - Lab B & Lab C: -7.048248, 110.440831
+ * - Lab D: -7.048054, 110.440933
+ * - Lab AP: -7.048954, 110.441646
+ */
+export const PREDEFINED_LABS: PredefinedLab[] = [
   {
-    id: 'lab-komputer-1',
-    name: 'Lab Komputer 1',
-    building: 'Gedung IF Lt.2',
-    latitude: -6.9733,
-    longitude: 107.6306,
-    radiusMeters: 100,
-    description: 'Lab umum mata kuliah pemrograman',
+    id: 'lab-b',
+    name: 'Lab B',
+    building: 'Gedung Laboratorium Informatika',
+    latitude: -7.048248,
+    longitude: 110.440831,
+    radiusMeters: DEFAULT_ATTENDANCE_RADIUS_METERS,
+    description: 'Laboratorium B (Radius 150 m)',
   },
   {
-    id: 'lab-jaringan',
-    name: 'Lab Jaringan',
-    building: 'Gedung IF Lt.3',
-    latitude: -6.9731,
-    longitude: 107.6308,
-    radiusMeters: 100,
-    description: 'Lab khusus mata kuliah jaringan komputer',
+    id: 'lab-c',
+    name: 'Lab C',
+    building: 'Gedung Laboratorium Informatika',
+    latitude: -7.048248,
+    longitude: 110.440831,
+    radiusMeters: DEFAULT_ATTENDANCE_RADIUS_METERS,
+    description: 'Laboratorium C (Radius 150 m)',
   },
   {
-    id: 'lab-komputer-2',
-    name: 'Lab Komputer 2',
-    building: 'Gedung IF Lt.2',
-    latitude: -6.9735,
-    longitude: 107.6304,
-    radiusMeters: 100,
-    description: 'Lab pendukung kelas besar',
+    id: 'lab-d',
+    name: 'Lab D',
+    building: 'Gedung Laboratorium Informatika',
+    latitude: -7.048054,
+    longitude: 110.440933,
+    radiusMeters: DEFAULT_ATTENDANCE_RADIUS_METERS,
+    description: 'Laboratorium D (Radius 150 m)',
+  },
+  {
+    id: 'lab-ap',
+    name: 'Lab AP',
+    building: 'Gedung Laboratorium Informatika',
+    latitude: -7.048954,
+    longitude: 110.441646,
+    radiusMeters: DEFAULT_ATTENDANCE_RADIUS_METERS,
+    description: 'Laboratorium AP (Radius 150 m)',
   },
 ];
+
+export const ROOM_PRESET_OPTIONS = [
+  'Lab B',
+  'Lab C',
+  'Lab D',
+  'Lab AP',
+  'Online',
+] as const;
+
+export function isOnlineRoom(roomName?: string, sessionType?: SessionType): boolean {
+  if (sessionType === 'ONLINE') return true;
+  return (roomName || '').trim().toLowerCase() === 'online';
+}
+
+export function findPredefinedLabByName(roomName?: string): PredefinedLab | null {
+  const normalized = (roomName || '').trim().toLowerCase();
+  if (!normalized || normalized === 'online') return null;
+  return (
+    PREDEFINED_LABS.find(
+      (lab) =>
+        lab.name.toLowerCase() === normalized ||
+        lab.id.toLowerCase() === normalized
+    ) || null
+  );
+}
+
+/** @deprecated gunakan PREDEFINED_LABS */
+export const LAB_LOCATIONS_SEED = PREDEFINED_LABS;

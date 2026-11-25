@@ -48,8 +48,8 @@ export function useNotificationSetup() {
         const data = response.notification.request.content.data;
         if (data?.type === 'SESSION_OPENED' && data?.sessionId) {
           router.push({
-            pathname: '/student-attendance',
-            params: { id: String(data.sessionId) },
+            pathname: '/attendance',
+            params: { sessionId: String(data.sessionId), id: String(data.sessionId) },
           } as any);
         } else if (data?.type === 'LEAVE_DECISION') {
           router.push('/my-leave-requests' as any);

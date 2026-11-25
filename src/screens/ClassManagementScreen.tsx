@@ -1,32 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
   Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
-import { ClassItem } from '../types/models';
-import {
-  listenClasses,
-  createClass,
-  updateClass,
-  deleteClass,
-} from '../services/classService';
-import { useAuth } from '../hooks/useAuth';
-import { LoadingState } from '../components/LoadingState';
-import { ErrorState } from '../components/ErrorState';
-import { EmptyState } from '../components/EmptyState';
-import { ConfirmModal } from '../components/ConfirmModal';
 import { ClassFormModal } from '../components/ClassFormModal';
-import { getErrorMessage } from '../utils/getErrorMessage';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { EmptyState } from '../components/EmptyState';
+import { ErrorState } from '../components/ErrorState';
+import { LoadingState } from '../components/LoadingState';
+import { useAuth } from '../hooks/useAuth';
+import {
+  createClass,
+  deleteClass,
+  listenClasses,
+  updateClass,
+} from '../services/classService';
 import { theme } from '../theme';
+import { ClassItem } from '../types/models';
+import { getErrorMessage } from '../utils/getErrorMessage';
 
 export const ClassManagementScreen: React.FC = () => {
   const router = useRouter();
@@ -34,6 +35,8 @@ export const ClassManagementScreen: React.FC = () => {
 
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   // Modal Form state
@@ -53,18 +56,25 @@ export const ClassManagementScreen: React.FC = () => {
         data.sort((a, b) => a.courseTitle.localeCompare(b.courseTitle));
         setClasses(data);
         setLoading(false);
+        setRefreshing(false);
         setError(null);
       },
       (err) => {
         setError(getErrorMessage(err));
         setLoading(false);
+        setRefreshing(false);
       }
     );
 
     return () => {
       unsubscribe();
     };
-  }, [profile?.role]);
+  }, [profile?.role, refreshKey]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setRefreshKey((k) => k + 1);
+  };
 
   const handleOpenAddModal = () => {
     setSelectedClass(null);
@@ -183,6 +193,9 @@ export const ClassManagementScreen: React.FC = () => {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            }
             renderItem={({ item }) => (
               <View style={styles.card}>
                 <View style={styles.cardHeader}>

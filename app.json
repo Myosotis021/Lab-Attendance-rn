@@ -20,7 +20,8 @@
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "CAMERA"
       ],
       "predictiveBackGestureEnabled": false,
       "package": "com.myosotis02.PPK1"
@@ -50,7 +51,13 @@
       "expo-image",
       "expo-web-browser",
       "expo-build-properties",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Izinkan $(PRODUCT_NAME) mengakses kamera untuk memindai QR Code presensi online."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

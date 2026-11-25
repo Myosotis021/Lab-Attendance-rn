@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -16,7 +17,24 @@ import { Feather } from '@expo/vector-icons';
 import { SessionItem, SessionStatus } from '../types/models';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { AttendanceRecapList } from '../components/AttendanceRecapList';
-import { listenSession, setSessionStatus } from '../services/sessionService';
+import { QRCodeDisplay } from '../components/QRCodeDisplay';
+import {
+  listenSession,
+  getSessionById,
+  setSessionStatus,
+  generateSessionQrToken,
+  regenerateSessionQrToken,
+  updateSessionAssistantLocation,
+} from '../services/sessionService';
+import {
+  getCurrentPosition,
+  calculateDistance,
+} from '../services/locationService';
+import {
+  DEFAULT_ATTENDANCE_RADIUS_METERS,
+  findPredefinedLabByName,
+  isOnlineRoom,
+} from '../data/labLocations';
 import { useAttendanceBySession } from '../hooks/useAttendanceBySession';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
@@ -72,22 +90,22 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
 
   const [sessionLoading, setSessionLoading] = useState(Boolean(sessionId));
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Status updating state to prevent double-clicks
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [updatingAction, setUpdatingAction] = useState(false);
 
   // Modal confirmation state
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [pendingAction, setPendingAction] = useState<'OPEN' | 'CLOSE' | null>(null);
 
-  // Real-time Attendance from Firestore (SRS-11)
   const {
     attendanceList,
     loading: attendanceLoading,
     error: attendanceError,
   } = useAttendanceBySession(sessionId);
 
-  // Listen to the session document in real-time
   useEffect(() => {
     if (!sessionId) {
       return;
@@ -113,25 +131,36 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
     };
   }, [sessionId]);
 
+  const handleRefresh = useCallback(async () => {
+    if (!sessionId) return;
+    setRefreshing(true);
+    try {
+      const latest = await getSessionById(sessionId);
+      if (latest) {
+        setSession(latest);
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }, [sessionId]);
 
-  // Edit Lab Location modal state (Developer 1 - Sprint 3)
   const { labs } = useLabLocations();
   const [editLabModalVisible, setEditLabModalVisible] = useState<boolean>(false);
 
-  // Cocokkan lab berdasarkan ruangan sesi
   const matchedLab = React.useMemo(() => {
     if (labs.length === 0) return null;
     const room = (session?.roomName || '').toLowerCase();
     return (
       labs.find(
         (l) =>
-          l.name.toLowerCase().includes(room) ||
-          room.includes(l.name.toLowerCase()) ||
-          l.id.toLowerCase().includes(room)
+          l.name.toLowerCase() === room ||
+          l.id.toLowerCase() === room
       ) || labs[0]
     );
   }, [labs, session?.roomName]);
 
+  const isOnlineSession = isOnlineRoom(session?.roomName, session?.sessionType);
+  const predefinedLab = findPredefinedLabByName(session?.roomName);
 
   const getStatusBadgeConfig = (status: SessionStatus) => {
     switch (status) {
@@ -180,14 +209,107 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
 
     try {
       setIsUpdatingStatus(true);
-      await setSessionStatus(session.id, newStatus);
       setModalVisible(false);
+
+      if (newStatus === 'BERJALAN') {
+        if (isOnlineSession) {
+          // Sesi Online: TIDAK melacak lokasi asprak/praktikan, langsung generate QR Code
+          const qrToken = generateSessionQrToken(session.id);
+          await setSessionStatus(session.id, 'BERJALAN', {
+            sessionType: 'ONLINE',
+            qrToken,
+          });
+        } else {
+          // Sesi Offline: Wajib ambil posisi GPS Asprak
+          const pos = await getCurrentPosition();
+          if (!pos.coords) {
+            Alert.alert(
+              'Lokasi Diperlukan',
+              pos.errorMessage ||
+                'Aktifkan GPS & izin lokasi perangkat Asisten untuk memulai sesi.'
+            );
+            return;
+          }
+
+          if (predefinedLab) {
+            // Rule 3: Untuk Lab B/C/D/AP, asisten wajib berada dalam radius 150m dari koordinat lab saat sesi dimulai
+            const distanceMeters = Math.round(
+              calculateDistance(
+                pos.coords.latitude,
+                pos.coords.longitude,
+                predefinedLab.latitude,
+                predefinedLab.longitude
+              )
+            );
+
+            if (distanceMeters > DEFAULT_ATTENDANCE_RADIUS_METERS) {
+              Alert.alert(
+                'Di Luar Radius Laboratorium',
+                `Anda berada ${distanceMeters} meter dari ${predefinedLab.name}. Asisten harus berada dalam radius maksimal ${DEFAULT_ATTENDANCE_RADIUS_METERS} meter dari koordinat ${predefinedLab.name} saat memulai sesi.`
+              );
+              return;
+            }
+          }
+
+          await setSessionStatus(session.id, 'BERJALAN', {
+            sessionType: 'OFFLINE',
+            assistantLat: pos.coords.latitude,
+            assistantLng: pos.coords.longitude,
+          });
+        }
+      } else {
+        await setSessionStatus(session.id, 'SELESAI');
+      }
+
       setPendingAction(null);
     } catch (err: unknown) {
       const errorMsg = getErrorMessage(err);
       Alert.alert('Gagal Mengubah Status', errorMsg);
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleRegenerateQr = async () => {
+    if (!session) return;
+    try {
+      setUpdatingAction(true);
+      await regenerateSessionQrToken(session.id);
+      Alert.alert('QR Diperbarui', 'QR Code presensi online telah diperbarui.');
+    } catch (err: unknown) {
+      Alert.alert('Gagal Memperbarui QR', getErrorMessage(err));
+    } finally {
+      setUpdatingAction(false);
+    }
+  };
+
+  const handleUpdateAssistantLocation = async () => {
+    if (!session) return;
+    try {
+      setUpdatingAction(true);
+      const pos = await getCurrentPosition();
+      if (!pos.coords) {
+        Alert.alert(
+          'Lokasi Tidak Tersedia',
+          pos.errorMessage || 'Pastikan GPS perangkat Anda aktif.'
+        );
+        return;
+      }
+      await updateSessionAssistantLocation(
+        session.id,
+        pos.coords.latitude,
+        pos.coords.longitude
+      );
+      Alert.alert(
+        'Lokasi Diperbarui',
+        `Titik lokasi device Asisten diperbarui (${pos.coords.latitude.toFixed(
+          5
+        )}, ${pos.coords.longitude.toFixed(5)}). Radius presensi: 150 m.`
+      );
+    } catch (err: unknown) {
+      Alert.alert('Gagal Memperbarui Lokasi', getErrorMessage(err));
+    } finally {
+      setUpdatingAction(false);
     }
   };
 
@@ -247,8 +369,11 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
         >
-          {/* Top Bar with Rounded Back Button */}
+          {/* Top Bar */}
           <View style={styles.topBar}>
             <TouchableOpacity
               style={styles.backButton}
@@ -282,14 +407,24 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
 
             <View style={styles.metaGrid}>
               <View style={styles.metaRow}>
-                <Text style={styles.metaLabel}>Kelas & Ruangan:</Text>
+                <Text style={styles.metaLabel}>Kelas & Tempat:</Text>
                 <Text style={styles.metaValue}>
-                  {session?.classGroup} • {session?.roomName}
+                  {session?.classGroup} • {isOnlineSession ? 'Online (QR)' : session?.roomName}
                 </Text>
               </View>
               <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Waktu:</Text>
                 <Text style={styles.metaValue}>{session?.timeSlot}</Text>
+              </View>
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Mode Presensi:</Text>
+                <Text style={styles.metaValue}>
+                  {isOnlineSession
+                    ? 'Online (Scan QR, tanpa GPS)'
+                    : predefinedLab
+                    ? `Lab Terdaftar (${predefinedLab.name}, 150 m)`
+                    : `Device Asprak (Radius 150 m)`}
+                </Text>
               </View>
             </View>
 
@@ -320,9 +455,69 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
                   <View style={styles.liveIndicatorBox}>
                     <View style={styles.liveDot} />
                     <Text style={styles.liveText}>
-                      Sesi sedang berjalan. Mahasiswa dapat melakukan presensi.
+                      {isOnlineSession
+                        ? 'Sesi Online berjalan. Bagikan QR Code di bawah ke praktikan.'
+                        : 'Sesi sedang berjalan. Praktikan dapat presensi dalam radius 150 m.'}
                     </Text>
                   </View>
+
+                  {isOnlineSession && (
+                    <View style={styles.qrCard}>
+                      <Text style={styles.qrTitle}>QR Code Presensi Online</Text>
+                      <Text style={styles.qrSubtitle}>
+                        Praktikan dapat memindai QR Code ini untuk absensi jarak jauh (lokasi tidak dilacak).
+                      </Text>
+
+                      <View style={styles.qrCenter}>
+                        {session?.qrToken ? (
+                          <QRCodeDisplay value={session.qrToken} size={200} />
+                        ) : (
+                          <Text style={styles.qrMissingText}>
+                            QR Code belum dibuat. Tekan tombol di bawah untuk membuat QR.
+                          </Text>
+                        )}
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.regenQrBtn}
+                        onPress={handleRegenerateQr}
+                        disabled={updatingAction}
+                        activeOpacity={0.8}
+                      >
+                        {updatingAction ? (
+                          <ActivityIndicator size="small" color="#1D4ED8" />
+                        ) : (
+                          <>
+                            <Feather name="refresh-cw" size={14} color="#1D4ED8" />
+                            <Text style={styles.regenQrBtnText}>
+                              {session?.qrToken ? 'Perbarui QR Code' : 'Generate QR Code'}
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {!isOnlineSession && !predefinedLab && (
+                    <TouchableOpacity
+                      style={styles.updateLocBtn}
+                      onPress={handleUpdateAssistantLocation}
+                      disabled={updatingAction}
+                      activeOpacity={0.8}
+                    >
+                      {updatingAction ? (
+                        <ActivityIndicator size="small" color="#92400E" />
+                      ) : (
+                        <>
+                          <Feather name="crosshair" size={14} color="#92400E" />
+                          <Text style={styles.updateLocBtnText}>
+                            Perbarui Posisi Device Asprak (150 m)
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+
                   <TouchableOpacity
                     style={styles.closeSessionBtn}
                     onPress={handleCloseSessionPress}
@@ -374,7 +569,11 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
           }
           message={
             pendingAction === 'OPEN'
-              ? 'Membuka sesi akan memungkinkan praktikan untuk mengisi presensi kehadiran sekarang.'
+              ? isOnlineSession
+                ? 'Sesi Online akan dibuka dengan QR Code untuk presensi jarak jauh (lokasi tidak dilacak).'
+                : predefinedLab
+                ? `Membuka sesi di ${predefinedLab.name} memvalidasi posisi Anda berada dalam radius 150 meter dari koordinat lab.`
+                : 'Membuka sesi di tempat lainnya akan merekam posisi device Anda sebagai acuan radius 150 meter.'
               : 'Menutup sesi akan mengakhiri pengisian presensi. Praktikan tidak akan dapat mengisi presensi lagi.'
           }
           confirmText={
@@ -385,7 +584,7 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
           onCancel={() => setModalVisible(false)}
         />
 
-        {/* Edit Lab Location Modal (Developer 1 - Sprint 3) */}
+        {/* Edit Lab Location Modal */}
         <EditLabLocationModal
           visible={editLabModalVisible}
           lab={matchedLab}
@@ -393,7 +592,6 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
         />
       </SafeAreaView>
     </LinearGradient>
-
   );
 };
 
@@ -510,6 +708,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 8,
   },
   metaLabel: {
     fontSize: 12,
@@ -519,6 +718,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: theme.colors.textPrimary,
+    flexShrink: 1,
+    textAlign: 'right',
   },
   statusActionSection: {
     marginTop: 4,
@@ -533,35 +734,6 @@ const styles = StyleSheet.create({
     ...theme.shadows.subtle,
   },
   openSessionBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 14,
-  },
-  btnOpenSession: {
-    backgroundColor: '#16A34A',
-  },
-  btnCloseSession: {
-    backgroundColor: '#DC2626',
-  },
-  btnDisabled: {
-    backgroundColor: '#9CA3AF',
-    opacity: 0.5,
-  },
-  btnEditLabLocation: {
-    backgroundColor: '#2563EB',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 2,
-  },
-  btnEditLabLocationText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  mainActionButtonText: {
-
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 14,
@@ -588,6 +760,68 @@ const styles = StyleSheet.create({
     color: '#166534',
     fontWeight: '600',
     flex: 1,
+  },
+  qrCard: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 14,
+    padding: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  qrTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E3A8A',
+  },
+  qrSubtitle: {
+    fontSize: 12,
+    color: '#1D4ED8',
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+  qrCenter: {
+    marginVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrMissingText: {
+    fontSize: 12,
+    color: '#DC2626',
+    textAlign: 'center',
+  },
+  regenQrBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  regenQrBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  updateLocBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 10,
+  },
+  updateLocBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
   },
   closeSessionBtn: {
     backgroundColor: '#DC2626',
@@ -617,93 +851,6 @@ const styles = StyleSheet.create({
   },
   btnIcon: {
     marginRight: 6,
-  },
-  btnReschedule: {
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  btnRescheduleText: {
-    color: '#374151',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  leaveButton: {
-    borderWidth: 1.5,
-    borderColor: '#0D9488',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    backgroundColor: '#F0FDFA',
-    marginTop: 8,
-  },
-  leaveButtonText: {
-    color: '#0D9488',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-  },
-  modalHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  modalHeaderSub: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 12,
-  },
-  modalBtnRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 12,
-  },
-  modalCancelBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
-  },
-  modalCancelText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4B5563',
-  },
-  modalSaveBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    backgroundColor: '#2563EB',
-  },
-  modalSaveText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
 });
 

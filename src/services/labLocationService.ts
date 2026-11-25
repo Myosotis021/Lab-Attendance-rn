@@ -10,7 +10,10 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { LabLocation } from '../types/models';
-import { LAB_LOCATIONS_SEED } from '../data/labLocations';
+import {
+  PREDEFINED_LABS,
+  DEFAULT_ATTENDANCE_RADIUS_METERS,
+} from '../data/labLocations';
 
 const LABS_COLLECTION = 'labLocations';
 
@@ -27,7 +30,7 @@ export async function getAllLabLocations(): Promise<LabLocation[]> {
       building: data.building || '',
       latitude: Number(data.latitude) || 0,
       longitude: Number(data.longitude) || 0,
-      radiusMeters: Number(data.radiusMeters) || 100,
+      radiusMeters: Number(data.radiusMeters) || DEFAULT_ATTENDANCE_RADIUS_METERS,
       description: data.description || '',
       createdBy: data.createdBy || '',
       updatedAt: data.updatedAt || null,
@@ -53,7 +56,7 @@ export async function getLabLocationById(
     building: data.building || '',
     latitude: Number(data.latitude) || 0,
     longitude: Number(data.longitude) || 0,
-    radiusMeters: Number(data.radiusMeters) || 100,
+    radiusMeters: Number(data.radiusMeters) || DEFAULT_ATTENDANCE_RADIUS_METERS,
     description: data.description || '',
     createdBy: data.createdBy || '',
     updatedAt: data.updatedAt || null,
@@ -79,7 +82,7 @@ export function listenLabLocations(
           building: data.building || '',
           latitude: Number(data.latitude) || 0,
           longitude: Number(data.longitude) || 0,
-          radiusMeters: Number(data.radiusMeters) || 100,
+          radiusMeters: Number(data.radiusMeters) || DEFAULT_ATTENDANCE_RADIUS_METERS,
           description: data.description || '',
           createdBy: data.createdBy || '',
           updatedAt: data.updatedAt || null,
@@ -129,15 +132,18 @@ export async function updateLabLocation(
   if (snap.exists()) {
     await updateDoc(labRef, payload);
   } else {
-    // Jika belum ada dokumen, buat baru dengan seed awal jika cocok
-    const seed = LAB_LOCATIONS_SEED.find((s) => s.id === labId);
+    // Jika belum ada dokumen, buat baru dengan data resmi jika cocok
+    const seed = PREDEFINED_LABS.find((s) => s.id === labId);
     await setDoc(labRef, {
       id: labId,
       name: data.name || seed?.name || labId,
       building: data.building || seed?.building || '',
       latitude: data.latitude ?? seed?.latitude ?? 0,
       longitude: data.longitude ?? seed?.longitude ?? 0,
-      radiusMeters: data.radiusMeters ?? seed?.radiusMeters ?? 100,
+      radiusMeters:
+        data.radiusMeters ??
+        seed?.radiusMeters ??
+        DEFAULT_ATTENDANCE_RADIUS_METERS,
       description: data.description ?? seed?.description ?? '',
       createdBy: 'asisten',
       updatedAt: serverTimestamp(),
@@ -146,13 +152,15 @@ export async function updateLabLocation(
 }
 
 /**
- * Helper: Mengisi data awal laboratorium jika koleksi di Firestore masih kosong
+ * Helper: Memastikan 4 lab resmi (Lab B, Lab C, Lab D, Lab AP) tersedia di Firestore
+ * dengan koordinat & radius 150m sesuai ketetapan PM.
  */
 export async function seedLabLocationsIfEmpty(): Promise<void> {
   try {
     const existing = await getAllLabLocations();
-    if (existing.length === 0) {
-      for (const item of LAB_LOCATIONS_SEED) {
+    const existingIds = new Set(existing.map((l) => l.id));
+    for (const item of PREDEFINED_LABS) {
+      if (!existingIds.has(item.id)) {
         const labRef = doc(db, LABS_COLLECTION, item.id);
         await setDoc(labRef, {
           name: item.name,

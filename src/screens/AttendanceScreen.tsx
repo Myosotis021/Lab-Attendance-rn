@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,12 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import {
   AttendanceRecord,
   SessionItem,
@@ -20,15 +22,23 @@ import {
   LabLocation,
 } from '../types/models';
 import { LocationStatusCard } from '../components/LocationStatusCard';
+import { QRScannerModal } from '../components/QRScannerModal';
+import { AttendanceFeedbackModal } from '../components/AttendanceFeedbackModal';
+import { OfflineBanner } from '../components/OfflineBanner';
 import { useCurrentLocation } from '../hooks/useCurrentLocation';
 import { useLabLocations } from '../hooks/useLabLocations';
-import { isWithinLabRadius } from '../services/locationService';
+import { calculateDistance } from '../services/locationService';
 import {
   submitAttendance,
   listenMyAttendanceForSession,
 } from '../services/attendanceService';
-import { listenSession } from '../services/sessionService';
+import { listenSession, getSessionById } from '../services/sessionService';
 import { useAuth } from '../hooks/useAuth';
+import {
+  DEFAULT_ATTENDANCE_RADIUS_METERS,
+  findPredefinedLabByName,
+  isOnlineRoom,
+} from '../data/labLocations';
 
 export interface AttendanceScreenProps {
   sessionId?: string;
@@ -56,13 +66,7 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
 
   const { profile } = useAuth();
   const { labs } = useLabLocations();
-  const {
-    location,
-    permissionStatus,
-    refreshLocation,
-  } = useCurrentLocation(true);
 
-  // Session state
   const [session, setSession] = useState<SessionItem | null>(() => {
     if (searchParams.courseTitle) {
       return {
@@ -71,9 +75,10 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
         courseTitle: searchParams.courseTitle,
         moduleName: searchParams.moduleName || '',
         classGroup: searchParams.classGroup || '',
-        roomName: searchParams.roomName || 'Lab Komputer 1',
+        roomName: searchParams.roomName || 'Lab B',
         timeSlot: searchParams.timeSlot || '',
-        status: (searchParams.status as SessionStatus) || 'BERJALAN',
+        status: (searchParams.status as SessionStatus) || 'BELUM_DIBUKA',
+        sessionType: isOnlineRoom(searchParams.roomName) ? 'ONLINE' : 'OFFLINE',
         participantIds: [],
         createdBy: '',
         createdAt: null as any,
@@ -82,9 +87,21 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
     return null;
   });
 
+  const isOnlineSession = Boolean(
+    session && isOnlineRoom(session.roomName, session.sessionType)
+  );
+
+  // Untuk sesi Online, lokasi praktikan TIDAK dilacak sama sekali
+  const shouldTrackLocation = Boolean(session && !isOnlineSession);
+  const { location, permissionStatus, refreshLocation } =
+    useCurrentLocation(shouldTrackLocation);
+
   const [loadingSession, setLoadingSession] = useState<boolean>(!session);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [scannerVisible, setScannerVisible] = useState<boolean>(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [attendanceRecord, setAttendanceRecord] =
     useState<AttendanceRecord | null>(null);
 
@@ -110,39 +127,96 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
     return () => unsub();
   }, [sessionId, currentUid]);
 
-  // 3. Cocokkan sesi dengan lab lokasi terdaftar
-  const matchedLab: LabLocation | null = useMemo(() => {
-    if (!session || labs.length === 0) return labs[0] || null;
-    const room = (session.roomName || '').toLowerCase().trim();
+  // Pull-to-refresh (scroll mentok atas)
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (sessionId) {
+        const latest = await getSessionById(sessionId);
+        if (latest) {
+          setSession(latest);
+        }
+      }
+      if (shouldTrackLocation) {
+        refreshLocation();
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }, [sessionId, shouldTrackLocation, refreshLocation]);
 
-    // Cocokkan persis atau sebagian
-    const found = labs.find(
-      (l) =>
-        l.name.toLowerCase().includes(room) ||
-        room.includes(l.name.toLowerCase()) ||
-        l.id.toLowerCase().includes(room)
-    );
+  // 3. Tentukan target koordinat (Lab terdaftar vs Device Asprak untuk tempat lainnya)
+  const locationTarget = useMemo(() => {
+    if (!session || isOnlineSession) return null;
 
-    return found || labs[0] || null;
-  }, [session, labs]);
+    const predefined = findPredefinedLabByName(session.roomName);
+    if (predefined) {
+      const firestoreLab: LabLocation | undefined = labs.find(
+        (l) => l.id === predefined.id
+      );
+      return {
+        mode: 'GPS_LAB' as const,
+        label: predefined.name,
+        latitude: firestoreLab?.latitude ?? predefined.latitude,
+        longitude: firestoreLab?.longitude ?? predefined.longitude,
+        radiusMeters: DEFAULT_ATTENDANCE_RADIUS_METERS,
+      };
+    }
 
-  // 4. Kalkulasi radius dan jarak dengan formula Haversine
+    // Tempat lainnya (mengisi sendiri) -> balik ke rule 1: radius 150m dari device Asprak
+    if (
+      typeof session.assistantLat === 'number' &&
+      typeof session.assistantLng === 'number'
+    ) {
+      return {
+        mode: 'GPS_ASSISTANT' as const,
+        label: `Device Asprak (${session.roomName || 'Lokasi Sesi'})`,
+        latitude: session.assistantLat,
+        longitude: session.assistantLng,
+        radiusMeters: DEFAULT_ATTENDANCE_RADIUS_METERS,
+      };
+    }
+
+    return {
+      mode: 'GPS_ASSISTANT_MISSING' as const,
+      label: `Device Asprak (${session.roomName || 'Lokasi Sesi'})`,
+      latitude: null,
+      longitude: null,
+      radiusMeters: DEFAULT_ATTENDANCE_RADIUS_METERS,
+    };
+  }, [session, isOnlineSession, labs]);
+
+  // 4. Kalkulasi radius dan jarak dengan formula Haversine (maks. 150m)
   const radiusCalculation = useMemo(() => {
-    if (!location?.coords || !matchedLab) {
+    if (
+      isOnlineSession ||
+      !location?.coords ||
+      !locationTarget ||
+      locationTarget.latitude === null ||
+      locationTarget.longitude === null
+    ) {
       return { withinRadius: null, distanceMeters: null };
     }
-    return isWithinLabRadius(
+    const distance = calculateDistance(
       location.coords.latitude,
       location.coords.longitude,
-      matchedLab
+      locationTarget.latitude,
+      locationTarget.longitude
     );
-  }, [location, matchedLab]);
+    const distanceMeters = Math.round(distance);
+    return {
+      distanceMeters,
+      withinRadius: distanceMeters <= locationTarget.radiusMeters,
+    };
+  }, [isOnlineSession, location, locationTarget]);
 
   const handleBack = () => {
     if (onBack) {
       onBack();
-    } else {
+    } else if (router.canGoBack()) {
       router.back();
+    } else {
+      router.replace('/');
     }
   };
 
@@ -150,13 +224,13 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
     router.push('/lab-map');
   };
 
-  const handleSubmit = async () => {
+  // Submit untuk Sesi OFFLINE (validasi GPS <= 150m)
+  const handleSubmitOffline = async () => {
     if (!session) {
       Alert.alert('Error', 'Data sesi tidak ditemukan.');
       return;
     }
 
-    // A. Validasi status sesi (Hanya boleh presensi jika BERJALAN)
     if (session.status !== 'BERJALAN') {
       Alert.alert(
         'Presensi Ditolak',
@@ -165,7 +239,6 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
       return;
     }
 
-    // B. Validasi izin & ketersediaan lokasi
     if (permissionStatus === 'denied' || location?.error === 'DENIED') {
       Alert.alert(
         'Akses Lokasi Ditolak',
@@ -190,21 +263,26 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
       return;
     }
 
-    // C. Validasi radius lokasi (Haversine)
-    if (!matchedLab) {
-      Alert.alert('Error', 'Data lokasi laboratorium tidak ditemukan.');
+    if (!locationTarget || locationTarget.mode === 'GPS_ASSISTANT_MISSING') {
+      Alert.alert(
+        'Menunggu Lokasi Asisten',
+        'Koordinat perangkat Asisten belum tersedia. Tarik layar ke bawah untuk memuat ulang.'
+      );
       return;
     }
 
     if (!radiusCalculation.withinRadius) {
       Alert.alert(
         'Di Luar Radius Presensi',
-        `Anda berada ${radiusCalculation.distanceMeters ?? '?'} meter dari lab. Radius presensi: ${matchedLab.radiusMeters} meter.`
+        `Anda berada ${
+          radiusCalculation.distanceMeters ?? '?'
+        } meter dari ${locationTarget.label}. Radius maksimal presensi: ${
+          locationTarget.radiusMeters
+        } meter.`
       );
       return;
     }
 
-    // D. Anti-double presensi
     if (attendanceRecord) {
       Alert.alert(
         'Sudah Presensi',
@@ -213,7 +291,6 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
       return;
     }
 
-    // E. Semua lolos -> Submit dengan snapshot lokasi
     setSubmitting(true);
     try {
       const locationSnapshot: LocationSnapshot = {
@@ -232,13 +309,11 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
         studentNim: profile?.nim || '220101001',
         notes,
         locationSnapshot,
+        attendanceMode: locationTarget.mode,
       });
 
       setAttendanceRecord(result);
-      Alert.alert(
-        'Presensi Berhasil!',
-        `Presensi Anda tercatat pada ${result.timestamp}.\nJarak ke lab: ${locationSnapshot.distanceToLab} meter.`
-      );
+      setShowFeedbackModal(true);
     } catch (err: any) {
       Alert.alert('Gagal Presensi', err?.message || 'Terjadi kesalahan sistem.');
     } finally {
@@ -246,7 +321,56 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
     }
   };
 
-  // Status Badge styling
+  // Scan & Submit untuk Sesi ONLINE (QR Code, tanpa GPS)
+  const handleOpenQrScanner = () => {
+    if (!session || session.status !== 'BERJALAN') {
+      Alert.alert(
+        'Sesi Belum Dibuka',
+        'Presensi QR hanya dapat dilakukan saat sesi berstatus BERJALAN.'
+      );
+      return;
+    }
+    if (attendanceRecord) {
+      Alert.alert('Sudah Presensi', 'Anda sudah melakukan presensi pada sesi ini.');
+      return;
+    }
+    setScannerVisible(true);
+  };
+
+  const handleQrScanned = async (scannedData: string) => {
+    setScannerVisible(false);
+    if (!session) return;
+
+    const expectedToken = (session.qrToken || '').trim();
+    if (!expectedToken || scannedData.trim() !== expectedToken) {
+      Alert.alert(
+        'QR Code Tidak Valid',
+        'QR Code yang dipindai tidak cocok dengan sesi praktikum ini atau sudah diperbarui oleh Asisten. Silakan pindai ulang QR terbaru.'
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await submitAttendance({
+        sessionId: session.id,
+        classId: session.classId || '',
+        uid: currentUid,
+        studentName: profile?.name || 'Ahmad Fauzi',
+        studentNim: profile?.nim || '220101001',
+        notes,
+        attendanceMode: 'ONLINE_QR',
+      });
+
+      setAttendanceRecord(result);
+      setShowFeedbackModal(true);
+    } catch (err: any) {
+      Alert.alert('Gagal Presensi Online', err?.message || 'Terjadi kesalahan sistem.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const isSessionOpen = session?.status === 'BERJALAN';
   const isSessionFinished = session?.status === 'SELESAI';
 
@@ -264,16 +388,20 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
     badgeLabel = 'SELESAI';
   }
 
-  const canSubmit =
+  const canSubmitOffline =
     isSessionOpen &&
     radiusCalculation.withinRadius === true &&
     permissionStatus === 'granted' &&
     !submitting &&
     !attendanceRecord;
 
+  const canSubmitOnline =
+    isSessionOpen && !submitting && !attendanceRecord;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar style="dark" />
+      <OfflineBanner />
 
       {/* Header Bar */}
       <View style={styles.topBar}>
@@ -282,21 +410,30 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
           onPress={handleBack}
           activeOpacity={0.7}
         >
-          <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>←</Text>
+          <Feather name="arrow-left" size={20} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.topBarTitle}>Presensi Laboratorium</Text>
-        <TouchableOpacity
-          style={styles.mapIconButton}
-          onPress={handleOpenMap}
-          activeOpacity={0.7}
-        >
-          <Text style={{ fontSize: 16 }}>🗺️</Text>
-        </TouchableOpacity>
+        <Text style={styles.topBarTitle}>
+          {isOnlineSession ? 'Presensi Online (QR)' : 'Presensi Laboratorium'}
+        </Text>
+        {!isOnlineSession ? (
+          <TouchableOpacity
+            style={styles.mapIconButton}
+            onPress={handleOpenMap}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontSize: 16 }}>🗺️</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 36 }} />
+        )}
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       >
         {loadingSession ? (
           <View style={styles.loadingBox}>
@@ -330,8 +467,12 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
               <View style={styles.metaDivider} />
 
               <View style={styles.metaRow}>
-                <Text style={{ fontSize: 14 }}>📍</Text>
-                <Text style={styles.metaValue}>Ruang: {session.roomName}</Text>
+                <Text style={{ fontSize: 14 }}>
+                  {isOnlineSession ? '🌐' : '📍'}
+                </Text>
+                <Text style={styles.metaValue}>
+                  Tempat: {isOnlineSession ? 'Online (QR Code)' : session.roomName}
+                </Text>
               </View>
               <View style={styles.metaRow}>
                 <Text style={{ fontSize: 14 }}>🕒</Text>
@@ -356,19 +497,39 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
               </View>
             </View>
 
-            {/* Kartu Validasi Lokasi GPS */}
-            <LocationStatusCard
-              labName={matchedLab?.name || session.roomName}
-              distanceMeters={radiusCalculation.distanceMeters}
-              radiusMeters={matchedLab?.radiusMeters || 100}
-              withinRadius={radiusCalculation.withinRadius}
-              permissionStatus={permissionStatus}
-              accuracy={location?.coords?.accuracy ?? null}
-              onRefresh={refreshLocation}
-              errorMessage={location?.errorMessage}
-            />
+            {/* Status Online atau Status Lokasi GPS */}
+            {isOnlineSession ? (
+              <View style={styles.onlineStatusCard}>
+                <View style={styles.onlineIconBox}>
+                  <Feather name="wifi" size={20} color="#1D4ED8" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.onlineStatusTitle}>
+                    Sesi Dilaksanakan Secara Online
+                  </Text>
+                  <Text style={styles.onlineStatusDesc}>
+                    Lokasi Anda tidak dilacak. Pindai QR Code dari Asisten untuk
+                    mencatat kehadiran jarak jauh.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <LocationStatusCard
+                labName={locationTarget?.label || session.roomName}
+                distanceMeters={radiusCalculation.distanceMeters}
+                radiusMeters={DEFAULT_ATTENDANCE_RADIUS_METERS}
+                withinRadius={radiusCalculation.withinRadius}
+                permissionStatus={permissionStatus}
+                accuracy={location?.coords?.accuracy ?? null}
+                errorMessage={
+                  locationTarget?.mode === 'GPS_ASSISTANT_MISSING'
+                    ? 'Menunggu koordinat device Asisten saat sesi dibuka. Tarik ke bawah untuk refresh.'
+                    : location?.errorMessage
+                }
+              />
+            )}
 
-            {/* Tampilan Konfirmasi Presensi jika sudah presensi (Anti-Double & Sembunyikan Doc ID) */}
+            {/* Tampilan Konfirmasi Presensi jika sudah presensi */}
             {attendanceRecord ? (
               <View style={styles.confirmedCard}>
                 <View style={styles.confirmedHeader}>
@@ -389,13 +550,17 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
                   <Text style={styles.confirmedDetailText}>
                     Status: <Text style={styles.boldGreen}>Hadir (Tepat Waktu)</Text>
                   </Text>
-                  {attendanceRecord.locationSnapshot && (
+                  {attendanceRecord.locationSnapshot ? (
                     <Text style={styles.confirmedDetailText}>
                       Jarak Saat Presensi:{' '}
                       <Text style={styles.bold}>
                         {attendanceRecord.locationSnapshot.distanceToLab} meter
                       </Text>{' '}
-                      dari lab
+                      dari titik acuan
+                    </Text>
+                  ) : (
+                    <Text style={styles.confirmedDetailText}>
+                      Metode: <Text style={styles.bold}>Scan QR Code (Online)</Text>
                     </Text>
                   )}
                   {Boolean(attendanceRecord.notes) && (
@@ -408,22 +573,30 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
                 <View style={styles.confirmedBanner}>
                   <Text style={{ fontSize: 14 }}>🛡️</Text>
                   <Text style={styles.confirmedBannerText}>
-                    Presensi berhasil diverifikasi berbasis lokasi GPS.
+                    {attendanceRecord.locationSnapshot
+                      ? 'Presensi berhasil diverifikasi berbasis lokasi GPS (radius 150 m).'
+                      : 'Presensi online berhasil diverifikasi melalui QR Code.'}
                   </Text>
                 </View>
               </View>
             ) : (
-              /* Form Pengisian Presensi jika belum submit */
+              /* Form Pengisian Presensi */
               <View style={styles.formCard}>
                 <Text style={styles.formTitle}>Formulir Presensi</Text>
                 <Text style={styles.formSubtitle}>
-                  Pastikan Anda berada di area laboratorium saat menekan tombol presensi.
+                  {isOnlineSession
+                    ? 'Tekan tombol Scan QR Code saat Asisten menampilkan QR sesi online.'
+                    : `Pastikan Anda berada dalam radius ${DEFAULT_ATTENDANCE_RADIUS_METERS} meter saat menekan tombol presensi.`}
                 </Text>
 
                 <Text style={styles.inputLabel}>Catatan Praktikum (Opsional):</Text>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Tambahkan catatan jika diperlukan..."
+                  placeholder={
+                    isOnlineSession
+                      ? 'Tambahkan catatan jika diperlukan...'
+                      : 'Contoh: Meja PC-04'
+                  }
                   value={notes}
                   onChangeText={setNotes}
                   multiline
@@ -431,25 +604,47 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
                   editable={!submitting}
                 />
 
-                {/* Tombol Presensi Sekarang */}
-                <TouchableOpacity
-                  style={[
-                    styles.submitButton,
-                    !canSubmit && styles.submitButtonDisabled,
-                  ]}
-                  onPress={handleSubmit}
-                  disabled={!canSubmit || submitting}
-                  activeOpacity={0.8}
-                >
-                  {submitting ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 16 }}>✓</Text>
-                      <Text style={styles.submitButtonText}>Presensi Sekarang</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                {isOnlineSession ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.qrScanButton,
+                      !canSubmitOnline && styles.submitButtonDisabled,
+                    ]}
+                    onPress={handleOpenQrScanner}
+                    disabled={!canSubmitOnline || submitting}
+                    activeOpacity={0.8}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Feather name="camera" size={18} color="#FFFFFF" />
+                        <Text style={styles.submitButtonText}>
+                          Scan QR Code Presensi
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.submitButton,
+                      !canSubmitOffline && styles.submitButtonDisabled,
+                    ]}
+                    onPress={handleSubmitOffline}
+                    disabled={!canSubmitOffline || submitting}
+                    activeOpacity={0.8}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 16 }}>✓</Text>
+                        <Text style={styles.submitButtonText}>Presensi Sekarang</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
 
                 {!isSessionOpen && (
                   <Text style={styles.warningHint}>
@@ -457,28 +652,46 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
                   </Text>
                 )}
 
-                {isSessionOpen && radiusCalculation.withinRadius === false && (
-                  <Text style={styles.warningHint}>
-                    ⚠️ Anda berada di luar radius laboratorium. Dekatilah lab untuk melakukan presensi.
-                  </Text>
-                )}
+                {!isOnlineSession &&
+                  isSessionOpen &&
+                  radiusCalculation.withinRadius === false && (
+                    <Text style={styles.warningHint}>
+                      ⚠️ Anda berada di luar radius {DEFAULT_ATTENDANCE_RADIUS_METERS} meter. Dekatilah lokasi untuk melakukan presensi.
+                    </Text>
+                  )}
               </View>
             )}
 
-            {/* Quick Action: Buka Peta Lab */}
-            <TouchableOpacity
-              style={styles.openMapButton}
-              onPress={handleOpenMap}
-              activeOpacity={0.8}
-            >
-              <Text style={{ fontSize: 16 }}>🗺️</Text>
-              <Text style={styles.openMapButtonText}>
-                Lihat Semua Lokasi Lab di Peta
-              </Text>
-            </TouchableOpacity>
+            {/* Quick Action: Buka Peta Lab (hanya untuk sesi Offline) */}
+            {!isOnlineSession && (
+              <TouchableOpacity
+                style={styles.openMapButton}
+                onPress={handleOpenMap}
+                activeOpacity={0.8}
+              >
+                <Text style={{ fontSize: 16 }}>🗺️</Text>
+                <Text style={styles.openMapButtonText}>
+                  Lihat Semua Lokasi Lab di Peta
+                </Text>
+              </TouchableOpacity>
+            )}
           </>
         )}
       </ScrollView>
+
+      {/* Modal QR Scanner untuk Sesi Online */}
+      <QRScannerModal
+        visible={scannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onScanSuccess={handleQrScanned}
+      />
+
+      {/* Pop-up Modal Feedback setelah presensi berhasil */}
+      <AttendanceFeedbackModal
+        visible={showFeedbackModal}
+        attendanceData={attendanceRecord}
+        onClose={() => setShowFeedbackModal(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -643,6 +856,36 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 1,
   },
+  onlineStatusCard: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#93C5FD',
+    borderRadius: 12,
+    padding: 14,
+    marginVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  onlineIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  onlineStatusTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E3A8A',
+  },
+  onlineStatusDesc: {
+    fontSize: 12,
+    color: '#1D4ED8',
+    marginTop: 2,
+    lineHeight: 17,
+  },
   formCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -688,6 +931,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#16A34A',
+    borderRadius: 10,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  qrScanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
     borderRadius: 10,
     paddingVertical: 14,
     gap: 8,

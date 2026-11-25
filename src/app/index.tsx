@@ -38,8 +38,9 @@ export default function Index() {
       });
     } else {
       router.push({
-        pathname: '/student-attendance',
+        pathname: '/attendance',
         params: {
+          sessionId: session.id,
           id: session.id,
           courseTitle: session.courseTitle,
           moduleName: session.moduleName,

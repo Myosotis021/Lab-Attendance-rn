@@ -35,21 +35,21 @@ export const MapScreen: React.FC = () => {
     return () => unsub();
   }, []);
 
-  // Koordinat pusat peta default (Kampus / Lab Informatika)
+  // Koordinat pusat peta default (Kampus / Lab B, C, D, AP)
   const initialRegion = useMemo(() => {
     if (labs.length > 0) {
       return {
         latitude: labs[0].latitude,
         longitude: labs[0].longitude,
-        latitudeDelta: 0.008,
-        longitudeDelta: 0.008,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
       };
     }
     return {
-      latitude: -6.9733,
-      longitude: 107.6306,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
+      latitude: -7.048248,
+      longitude: 110.440831,
+      latitudeDelta: 0.005,
+      longitudeDelta: 0.005,
     };
   }, [labs]);
 

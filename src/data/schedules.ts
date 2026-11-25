@@ -1,3 +1,6 @@
+import { getDefaultSessionSchedule } from '../utils/timeUtils';
+import { SessionType } from '../types/models';
+
 export type Role = 'asisten' | 'praktikan';
 
 export type SessionStatus = 'BELUM_DIBUKA' | 'BERJALAN' | 'SELESAI';
@@ -13,6 +16,11 @@ export interface SessionItem {
   scheduledAt?: any;
   scheduledEndAt?: any;
   status: SessionStatus;
+  sessionType?: SessionType;
+  qrToken?: string;
+  assistantLat?: number;
+  assistantLng?: number;
+  usesDateTimePicker?: boolean;
   participantIds: string[];
   createdBy: string;
   createdAt: any;
@@ -40,6 +48,8 @@ export const DUMMY_PROFILES: Record<Role, DummyUserProfile> = {
   },
 };
 
+const defaultSchedule = getDefaultSessionSchedule();
+
 export const INITIAL_SCHEDULES: SessionItem[] = [
   {
     id: 'ses-1',
@@ -47,9 +57,13 @@ export const INITIAL_SCHEDULES: SessionItem[] = [
     courseTitle: 'Pemrograman Perangkat Komputasi',
     moduleName: 'Modul 1: Antarmuka & Alur Praktikum',
     classGroup: 'Kelas A',
-    roomName: 'Lab Komputer 2',
-    timeSlot: 'Jumat, 13:00 - 15:30 WIB',
+    roomName: 'Lab B',
+    timeSlot: defaultSchedule.timeSlot,
+    scheduledAt: defaultSchedule.scheduledAt,
+    scheduledEndAt: defaultSchedule.scheduledEndAt,
     status: 'BELUM_DIBUKA',
+    sessionType: 'OFFLINE',
+    usesDateTimePicker: true,
     participantIds: [],
     createdBy: '',
     createdAt: null,
@@ -60,9 +74,13 @@ export const INITIAL_SCHEDULES: SessionItem[] = [
     courseTitle: 'Jaringan Komputer',
     moduleName: 'Modul 2: Routing Dinamis',
     classGroup: 'Kelas B',
-    roomName: 'Lab Jaringan',
-    timeSlot: 'Sabtu, 08:00 - 10:30 WIB',
+    roomName: 'Lab C',
+    timeSlot: defaultSchedule.timeSlot,
+    scheduledAt: defaultSchedule.scheduledAt,
+    scheduledEndAt: defaultSchedule.scheduledEndAt,
     status: 'BERJALAN',
+    sessionType: 'OFFLINE',
+    usesDateTimePicker: true,
     participantIds: [],
     createdBy: '',
     createdAt: null,
@@ -73,9 +91,13 @@ export const INITIAL_SCHEDULES: SessionItem[] = [
     courseTitle: 'Sistem Operasi',
     moduleName: 'Modul 3: Manajemen Memori & Proses',
     classGroup: 'Kelas C',
-    roomName: 'Lab Komputer 1',
-    timeSlot: 'Kamis, 10:00 - 12:30 WIB',
+    roomName: 'Lab D',
+    timeSlot: defaultSchedule.timeSlot,
+    scheduledAt: defaultSchedule.scheduledAt,
+    scheduledEndAt: defaultSchedule.scheduledEndAt,
     status: 'SELESAI',
+    sessionType: 'OFFLINE',
+    usesDateTimePicker: true,
     participantIds: [],
     createdBy: '',
     createdAt: null,

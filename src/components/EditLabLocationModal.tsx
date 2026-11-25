@@ -30,7 +30,7 @@ export const EditLabLocationModal: React.FC<EditLabLocationModalProps> = ({
   const [prevLabId, setPrevLabId] = useState<string | null>(null);
   const [latitude, setLatitude] = useState<string>('');
   const [longitude, setLongitude] = useState<string>('');
-  const [radiusMeters, setRadiusMeters] = useState<string>('100');
+  const [radiusMeters, setRadiusMeters] = useState<string>('150');
   const [description, setDescription] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
   const [fetchingGps, setFetchingGps] = useState<boolean>(false);
@@ -40,7 +40,7 @@ export const EditLabLocationModal: React.FC<EditLabLocationModalProps> = ({
     setPrevLabId(lab.id);
     setLatitude(String(lab.latitude));
     setLongitude(String(lab.longitude));
-    setRadiusMeters(String(lab.radiusMeters || 100));
+    setRadiusMeters(String(lab.radiusMeters || 150));
     setDescription(lab.description || '');
   }
 

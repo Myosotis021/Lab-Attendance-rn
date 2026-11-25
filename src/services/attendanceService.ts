@@ -37,10 +37,11 @@ export interface SubmitAttendanceParams {
   studentNim: string;
   notes?: string;
   locationSnapshot?: LocationSnapshot;
+  attendanceMode?: 'GPS_LAB' | 'GPS_ASSISTANT' | 'ONLINE_QR';
 }
 
 /**
- * Menyimpan presensi mahasiswa praktikan dengan data lokasi
+ * Menyimpan presensi mahasiswa praktikan (berbasis lokasi GPS atau QR code Online)
  * ID dokumen deterministik: attendance/{sessionId}_{uid} untuk mencegah presensi ganda
  */
 export async function submitAttendance(
@@ -66,6 +67,10 @@ export async function submitAttendance(
     notes: (params.notes || '').trim(),
     createdAt: serverTimestamp(),
   };
+
+  if (params.attendanceMode) {
+    payload.attendanceMode = params.attendanceMode;
+  }
 
   if (params.locationSnapshot) {
     payload.locationSnapshot = {

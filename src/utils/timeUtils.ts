@@ -166,3 +166,69 @@ export function buildTimestamp(date: Date, timeStr: string): Timestamp {
 
   return Timestamp.fromDate(targetDate);
 }
+
+export const DEFAULT_START_HOUR = 8;
+export const DEFAULT_START_MINUTE = 0;
+export const DEFAULT_END_HOUR = 10;
+export const DEFAULT_END_MINUTE = 30;
+
+/**
+ * Format rentang waktu sesi terstruktur dari Date / Timestamp start & end.
+ * Contoh: "Rabu, 25 Nov 2026, 08:00 - 10:30 WIB"
+ */
+export function formatSessionScheduleLabel(
+  startDate: Date,
+  endDate: Date
+): string {
+  const dayName = DAYS_ID[startDate.getDay()];
+  const day = startDate.getDate();
+  const monthName = MONTHS_ID[startDate.getMonth()];
+  const year = startDate.getFullYear();
+
+  const startH = String(startDate.getHours()).padStart(2, '0');
+  const startM = String(startDate.getMinutes()).padStart(2, '0');
+  const endH = String(endDate.getHours()).padStart(2, '0');
+  const endM = String(endDate.getMinutes()).padStart(2, '0');
+
+  return `${dayName}, ${day} ${monthName} ${year}, ${startH}:${startM} - ${endH}:${endM} WIB`;
+}
+
+/**
+ * Menghasilkan waktu default sesi (hari ini 08:00 - 10:30 WIB)
+ * Digunakan sebagai pengganti waktu sesi lama yang masih berupa string.
+ */
+export function getDefaultSessionSchedule(baseDate?: Date): {
+  scheduledAt: Timestamp;
+  scheduledEndAt: Timestamp;
+  timeSlot: string;
+  startDate: Date;
+  endDate: Date;
+} {
+  const ref = baseDate ? new Date(baseDate.getTime()) : new Date();
+  const startDate = new Date(
+    ref.getFullYear(),
+    ref.getMonth(),
+    ref.getDate(),
+    DEFAULT_START_HOUR,
+    DEFAULT_START_MINUTE,
+    0,
+    0
+  );
+  const endDate = new Date(
+    ref.getFullYear(),
+    ref.getMonth(),
+    ref.getDate(),
+    DEFAULT_END_HOUR,
+    DEFAULT_END_MINUTE,
+    0,
+    0
+  );
+
+  return {
+    scheduledAt: Timestamp.fromDate(startDate),
+    scheduledEndAt: Timestamp.fromDate(endDate),
+    timeSlot: formatSessionScheduleLabel(startDate, endDate),
+    startDate,
+    endDate,
+  };
+}

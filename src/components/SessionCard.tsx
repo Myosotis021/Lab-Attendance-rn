@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { RoleType, SessionItem, SessionStatus } from '../types';
 import { getSessionStatusLabel } from '../utils/labelUtils';
+import { isOnlineRoom } from '../data/labLocations';
 import { theme } from '../theme';
 
 interface SessionCardProps {
@@ -46,6 +47,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
 }) => {
   const statusConfig = STATUS_CONFIG[session.status] || STATUS_CONFIG.BELUM_DIBUKA;
   const isBerjalan = session.status === 'BERJALAN';
+  const isOnline = isOnlineRoom(session.roomName, session.sessionType);
 
   return (
     <TouchableOpacity
@@ -55,20 +57,29 @@ export const SessionCard: React.FC<SessionCardProps> = ({
     >
       {/* Category Tag & Status Badge */}
       <View style={styles.topRow}>
-        <View
-          style={[
-            styles.categoryTag,
-            isBerjalan ? styles.categoryTagOngoing : styles.categoryTagDefault,
-          ]}
-        >
-          <Text
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          <View
             style={[
-              styles.categoryTagText,
-              isBerjalan ? styles.categoryTagTextOngoing : styles.categoryTagTextDefault,
+              styles.categoryTag,
+              isBerjalan ? styles.categoryTagOngoing : styles.categoryTagDefault,
             ]}
           >
-            PRAKTIKUM
-          </Text>
+            <Text
+              style={[
+                styles.categoryTagText,
+                isBerjalan ? styles.categoryTagTextOngoing : styles.categoryTagTextDefault,
+              ]}
+            >
+              PRAKTIKUM
+            </Text>
+          </View>
+          {isOnline && (
+            <View style={[styles.categoryTag, { backgroundColor: '#DBEAFE' }]}>
+              <Text style={[styles.categoryTagText, { color: '#1D4ED8' }]}>
+                ONLINE • QR
+              </Text>
+            </View>
+          )}
         </View>
 
         <View

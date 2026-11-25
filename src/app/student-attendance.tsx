@@ -1,6 +1,6 @@
 import React from 'react';
-import { StudentAttendanceScreen } from '../screens/StudentAttendanceScreen';
+import { AttendanceScreen } from '../screens/AttendanceScreen';
 
 export default function StudentAttendanceRoute() {
-  return <StudentAttendanceScreen />;
+  return <AttendanceScreen />;
 }

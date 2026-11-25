@@ -2,23 +2,100 @@ import {
   collection,
   doc,
   addDoc,
-  setDoc,
   updateDoc,
   deleteDoc,
   getDoc,
+  getDocs,
   query,
   onSnapshot,
   runTransaction,
+  writeBatch,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { SessionItem, SessionStatus } from '../types/models';
-import { isSessionTimeReached, formatJakartaTime } from '../utils/timeUtils';
+import { SessionItem, SessionStatus, SessionType } from '../types/models';
+import {
+  isSessionTimeReached,
+  formatJakartaTime,
+  getDefaultSessionSchedule,
+} from '../utils/timeUtils';
 import { sendPushToUsers } from './notificationService';
 import { INITIAL_SCHEDULES } from '../data/schedules';
+import { isOnlineRoom } from '../data/labLocations';
 
 const SESSIONS_COLLECTION = 'sessions';
+
+export function generateSessionQrToken(sessionId: string): string {
+  const rand = Math.random().toString(36).substring(2, 10).toUpperCase();
+  const ts = Date.now().toString(36).toUpperCase();
+  return `PPK-QR:${sessionId}:${ts}:${rand}`;
+}
+
+export function mapSessionDocToItem(id: string, data: Record<string, any>): SessionItem {
+  const hasPickerTime = Boolean(data.usesDateTimePicker && data.scheduledAt && data.scheduledEndAt);
+  const fallbackSchedule = hasPickerTime ? null : getDefaultSessionSchedule();
+  const resolvedRoom = data.roomName || '';
+  const resolvedType: SessionType =
+    data.sessionType === 'ONLINE' || isOnlineRoom(resolvedRoom, data.sessionType)
+      ? 'ONLINE'
+      : 'OFFLINE';
+
+  return {
+    id,
+    classId: data.classId || '',
+    courseTitle: data.courseTitle || '',
+    moduleName: data.moduleName || '',
+    classGroup: data.classGroup || '',
+    roomName: resolvedRoom,
+    timeSlot: hasPickerTime ? data.timeSlot || '' : fallbackSchedule!.timeSlot,
+    scheduledAt: hasPickerTime ? data.scheduledAt : fallbackSchedule!.scheduledAt,
+    scheduledEndAt: hasPickerTime ? data.scheduledEndAt : fallbackSchedule!.scheduledEndAt,
+    status: (data.status as SessionStatus) || 'BELUM_DIBUKA',
+    sessionType: resolvedType,
+    qrToken: data.qrToken || undefined,
+    assistantLat: typeof data.assistantLat === 'number' ? data.assistantLat : undefined,
+    assistantLng: typeof data.assistantLng === 'number' ? data.assistantLng : undefined,
+    usesDateTimePicker: hasPickerTime,
+    participantIds: Array.isArray(data.participantIds) ? data.participantIds : [],
+    createdBy: data.createdBy || '',
+    createdAt: data.createdAt || Timestamp.now(),
+  };
+}
+
+/**
+ * Migrasi otomatis sesi lama yang waktunya masih tercatat sebagai string manual:
+ * Menghapus data waktu string lama dan menggantinya dengan waktu default (DateTimePicker).
+ */
+export async function migrateLegacySessionTimesToDefault(): Promise<number> {
+  try {
+    const snap = await getDocs(collection(db, SESSIONS_COLLECTION));
+    const legacyDocs = snap.docs.filter((d) => {
+      const data = d.data();
+      return !data.usesDateTimePicker;
+    });
+
+    if (legacyDocs.length === 0) return 0;
+
+    const def = getDefaultSessionSchedule();
+    const batch = writeBatch(db);
+    legacyDocs.forEach((d) => {
+      batch.update(d.ref, {
+        scheduledAt: def.scheduledAt,
+        scheduledEndAt: def.scheduledEndAt,
+        timeSlot: def.timeSlot,
+        usesDateTimePicker: true,
+        updatedAt: serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+    return legacyDocs.length;
+  } catch (err) {
+    console.warn('migrateLegacySessionTimesToDefault skipped/failed:', err);
+    return 0;
+  }
+}
 
 /**
  * Menambahkan sesi praktikum baru
@@ -35,19 +112,26 @@ export async function createSession(data: {
   createdBy: string;
   scheduledAt?: Timestamp;
   scheduledEndAt?: Timestamp;
+  sessionType?: SessionType;
 }): Promise<string> {
+  const resolvedType: SessionType =
+    data.sessionType || (isOnlineRoom(data.roomName) ? 'ONLINE' : 'OFFLINE');
+  const def = getDefaultSessionSchedule();
+
   const docRef = await addDoc(collection(db, SESSIONS_COLLECTION), {
     classId: data.classId,
     courseTitle: data.courseTitle.trim(),
     moduleName: data.moduleName.trim(),
     classGroup: data.classGroup.trim(),
-    roomName: data.roomName.trim(),
-    timeSlot: data.timeSlot.trim(),
+    roomName: resolvedType === 'ONLINE' ? 'Online' : data.roomName.trim(),
+    timeSlot: data.timeSlot.trim() || def.timeSlot,
+    scheduledAt: data.scheduledAt || def.scheduledAt,
+    scheduledEndAt: data.scheduledEndAt || def.scheduledEndAt,
+    usesDateTimePicker: true,
+    sessionType: resolvedType,
     status: 'BELUM_DIBUKA' as SessionStatus,
     participantIds: data.participantIds || [],
     createdBy: data.createdBy,
-    ...(data.scheduledAt ? { scheduledAt: data.scheduledAt } : {}),
-    ...(data.scheduledEndAt ? { scheduledEndAt: data.scheduledEndAt } : {}),
     createdAt: serverTimestamp(),
   });
   return docRef.id;
@@ -65,6 +149,9 @@ export async function updateSession(
     classGroup?: string;
     roomName?: string;
     participantIds?: string[];
+    scheduledAt?: Timestamp;
+    scheduledEndAt?: Timestamp;
+    sessionType?: SessionType;
   }
 ): Promise<void> {
   const sessionRef = doc(db, SESSIONS_COLLECTION, id);
@@ -79,12 +166,23 @@ export async function updateSession(
     throw new Error('Sesi hanya dapat diubah jika status masih BELUM DIBUKA.');
   }
 
+  const resolvedType = data.sessionType || (data.roomName ? (isOnlineRoom(data.roomName) ? 'ONLINE' : 'OFFLINE') : undefined);
+
   await updateDoc(sessionRef, {
     ...(data.moduleName ? { moduleName: data.moduleName.trim() } : {}),
     ...(data.timeSlot ? { timeSlot: data.timeSlot.trim() } : {}),
+    ...(data.scheduledAt ? { scheduledAt: data.scheduledAt } : {}),
+    ...(data.scheduledEndAt ? { scheduledEndAt: data.scheduledEndAt } : {}),
+    ...(data.scheduledAt || data.scheduledEndAt ? { usesDateTimePicker: true } : {}),
     ...(data.courseTitle ? { courseTitle: data.courseTitle.trim() } : {}),
     ...(data.classGroup ? { classGroup: data.classGroup.trim() } : {}),
-    ...(data.roomName ? { roomName: data.roomName.trim() } : {}),
+    ...(data.roomName
+      ? {
+          roomName:
+            resolvedType === 'ONLINE' ? 'Online' : data.roomName.trim(),
+        }
+      : {}),
+    ...(resolvedType ? { sessionType: resolvedType } : {}),
     ...(data.participantIds ? { participantIds: data.participantIds } : {}),
     updatedAt: serverTimestamp(),
   });
@@ -111,18 +209,20 @@ export async function deleteSession(id: string): Promise<void> {
 
 /**
  * Mengubah status sesi praktikum.
- * Disertai validasi waktu mulai (scheduledAt) dan push notification trigger.
- * BELUM_DIBUKA -> BERJALAN
- * BERJALAN -> SELESAI
- * Sesi SELESAI tidak dapat dibuka lagi
+ * Disertai validasi waktu mulai (scheduledAt), koordinat/QR token, dan push notification trigger.
  */
 export async function setSessionStatus(
   id: string,
-  newStatus: SessionStatus
+  newStatus: SessionStatus,
+  options?: {
+    qrToken?: string;
+    assistantLat?: number;
+    assistantLng?: number;
+    sessionType?: SessionType;
+  }
 ): Promise<void> {
   const sessionRef = doc(db, SESSIONS_COLLECTION, id);
 
-  // Ambil data sesi untuk validasi waktu dan notification
   const snap = await getDoc(sessionRef);
   if (!snap.exists()) {
     throw new Error('Dokumen sesi tidak ditemukan.');
@@ -130,7 +230,6 @@ export async function setSessionStatus(
 
   const sessionData = snap.data();
 
-  // Validasi waktu saat membuka sesi (toleransi 5 menit lebih awal)
   if (newStatus === 'BERJALAN') {
     const scheduledAt = sessionData.scheduledAt as Timestamp | undefined;
     if (scheduledAt && !isSessionTimeReached(scheduledAt)) {
@@ -139,7 +238,6 @@ export async function setSessionStatus(
     }
   }
 
-  // Update status dengan transaksi (atomik)
   await runTransaction(db, async (transaction) => {
     const sessionDoc = await transaction.get(sessionRef);
     if (!sessionDoc.exists()) {
@@ -164,13 +262,29 @@ export async function setSessionStatus(
       status: newStatus,
       updatedAt: serverTimestamp(),
     };
-    if (newStatus === 'BERJALAN') updates.openedAt = serverTimestamp();
-    if (newStatus === 'SELESAI') updates.closedAt = serverTimestamp();
+    if (newStatus === 'BERJALAN') {
+      updates.openedAt = serverTimestamp();
+      if (options?.sessionType) {
+        updates.sessionType = options.sessionType;
+      }
+      if (options?.qrToken) {
+        updates.qrToken = options.qrToken;
+      }
+      if (
+        typeof options?.assistantLat === 'number' &&
+        typeof options?.assistantLng === 'number'
+      ) {
+        updates.assistantLat = options.assistantLat;
+        updates.assistantLng = options.assistantLng;
+      }
+    }
+    if (newStatus === 'SELESAI') {
+      updates.closedAt = serverTimestamp();
+    }
 
     transaction.update(sessionRef, updates);
   });
 
-  // Kirim push notification ke peserta
   const participantIds = (sessionData.participantIds as string[]) || [];
   const courseTitle = sessionData.courseTitle || 'Praktikum';
 
@@ -194,8 +308,36 @@ export async function setSessionStatus(
 }
 
 /**
+ * Regenerate QR token untuk sesi Online yang sedang BERJALAN
+ */
+export async function regenerateSessionQrToken(id: string): Promise<string> {
+  const newToken = generateSessionQrToken(id);
+  const sessionRef = doc(db, SESSIONS_COLLECTION, id);
+  await updateDoc(sessionRef, {
+    qrToken: newToken,
+    updatedAt: serverTimestamp(),
+  });
+  return newToken;
+}
+
+/**
+ * Memperbarui koordinat device asprak pada sesi offline custom yang sedang berjalan
+ */
+export async function updateSessionAssistantLocation(
+  id: string,
+  assistantLat: number,
+  assistantLng: number
+): Promise<void> {
+  const sessionRef = doc(db, SESSIONS_COLLECTION, id);
+  await updateDoc(sessionRef, {
+    assistantLat,
+    assistantLng,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
  * Ganti jadwal sesi praktikum
- * Hanya dapat diubah saat status masih BELUM_DIBUKA dan waktu di masa depan.
  */
 export async function rescheduleSession(
   id: string,
@@ -225,10 +367,10 @@ export async function rescheduleSession(
     scheduledAt: data.scheduledAt,
     scheduledEndAt: data.scheduledEndAt,
     timeSlot: data.timeSlot,
+    usesDateTimePicker: true,
     updatedAt: serverTimestamp(),
   });
 
-  // Kirim notifikasi perubahan jadwal
   const participantIds = (sessionData.participantIds as string[]) || [];
   const courseTitle = sessionData.courseTitle || 'Praktikum';
 
@@ -255,27 +397,11 @@ export function listenSession(
     sessionRef,
     (snap) => {
       if (!snap.exists()) {
-        // Fallback ke mock jika tidak ada di Firestore
         const mock = INITIAL_SCHEDULES.find((s) => s.id === id);
         onUpdate(mock || null);
         return;
       }
-      const data = snap.data();
-      onUpdate({
-        id: snap.id,
-        classId: data.classId || '',
-        courseTitle: data.courseTitle || '',
-        moduleName: data.moduleName || '',
-        classGroup: data.classGroup || '',
-        roomName: data.roomName || '',
-        timeSlot: data.timeSlot || '',
-        scheduledAt: data.scheduledAt,
-        scheduledEndAt: data.scheduledEndAt,
-        status: data.status || 'BELUM_DIBUKA',
-        participantIds: Array.isArray(data.participantIds) ? data.participantIds : [],
-        createdBy: data.createdBy || '',
-        createdAt: data.createdAt || Timestamp.now(),
-      } as SessionItem);
+      onUpdate(mapSessionDocToItem(snap.id, snap.data()));
     },
     (err) => {
       console.error('Error listenSession:', err);
@@ -288,7 +414,6 @@ export function listenSession(
 
 /**
  * Real-time listener untuk daftar sesi
- * Jika Firestore belum memiliki data sesi, fallback ke INITIAL_SCHEDULES
  */
 export function listenSessions(
   onUpdate: (sessions: SessionItem[]) => void,
@@ -302,24 +427,9 @@ export function listenSessions(
         onUpdate(INITIAL_SCHEDULES);
         return;
       }
-      const items: SessionItem[] = snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          classId: data.classId || '',
-          courseTitle: data.courseTitle || '',
-          moduleName: data.moduleName || '',
-          classGroup: data.classGroup || '',
-          roomName: data.roomName || '',
-          timeSlot: data.timeSlot || '',
-          scheduledAt: data.scheduledAt,
-          scheduledEndAt: data.scheduledEndAt,
-          status: data.status || 'BELUM_DIBUKA',
-          participantIds: Array.isArray(data.participantIds) ? data.participantIds : [],
-          createdBy: data.createdBy || '',
-          createdAt: data.createdAt || Timestamp.now(),
-        } as SessionItem;
-      });
+      const items: SessionItem[] = snap.docs.map((d) =>
+        mapSessionDocToItem(d.id, d.data())
+      );
       onUpdate(items);
     },
     (err) => {
@@ -340,24 +450,7 @@ export async function getSessionById(
     const sessionRef = doc(db, SESSIONS_COLLECTION, sessionId);
     const snap = await getDoc(sessionRef);
     if (snap.exists()) {
-      const data = snap.data();
-      return {
-        id: snap.id,
-        classId: data.classId || '',
-        courseTitle: data.courseTitle || '',
-        moduleName: data.moduleName || '',
-        classGroup: data.classGroup || '',
-        roomName: data.roomName || '',
-        timeSlot: data.timeSlot || '',
-        scheduledAt: data.scheduledAt,
-        scheduledEndAt: data.scheduledEndAt,
-        status: data.status || 'BELUM_DIBUKA',
-        participantIds: Array.isArray(data.participantIds)
-          ? data.participantIds
-          : [],
-        createdBy: data.createdBy || '',
-        createdAt: data.createdAt || Timestamp.now(),
-      };
+      return mapSessionDocToItem(snap.id, snap.data());
     }
   } catch (err) {
     console.warn('getSessionById failed, falling back to mock:', err);

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Platform,
@@ -10,15 +9,19 @@ import {
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
+import { Timestamp } from 'firebase/firestore';
 import {
-  formatJakartaTime,
-  buildTimestamp,
+  formatSessionScheduleLabel,
+  getDefaultSessionSchedule,
 } from '../utils/timeUtils';
 
 export interface TimeSlotPickerValue {
   date: Date;
   startTime: string; // "HH:MM"
-  endTime: string; // "HH:MM"
+  endTime: string;   // "HH:MM"
+  scheduledAt?: Timestamp;
+  scheduledEndAt?: Timestamp;
+  timeSlot?: string;
 }
 
 export interface TimeSlotPickerProps {
@@ -27,33 +30,87 @@ export interface TimeSlotPickerProps {
   disabled?: boolean;
 }
 
+type ActivePicker = 'date' | 'start' | 'end' | null;
+
+const formatTimeHHMM = (d: Date): string => {
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+};
+
+const parseHHMMOnDate = (baseDate: Date, hhmm: string): Date => {
+  const [hStr, mStr] = hhmm.split(':');
+  const h = parseInt(hStr || '8', 10);
+  const m = parseInt(mStr || '0', 10);
+  return new Date(
+    baseDate.getFullYear(),
+    baseDate.getMonth(),
+    baseDate.getDate(),
+    isNaN(h) ? 8 : h,
+    isNaN(m) ? 0 : m,
+    0,
+    0
+  );
+};
+
 export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
   value,
   onChange,
   disabled = false,
 }) => {
-  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
-
-  // Default values
-  const defaultDate = new Date();
-  defaultDate.setHours(13, 0, 0, 0);
-
-  const currentDate = value?.date || defaultDate;
-  const currentStartTime = value?.startTime || '13:00';
-  const currentEndTime = value?.endTime || '15:30';
-
-  const [startTimeInput, setStartTimeInput] = useState<string>(currentStartTime);
-  const [endTimeInput, setEndTimeInput] = useState<string>(currentEndTime);
+  const [activePicker, setActivePicker] = useState<ActivePicker>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  const def = getDefaultSessionSchedule();
+  const currentDate = value?.date || def.startDate;
+  const currentStartTime = value?.startTime || formatTimeHHMM(def.startDate);
+  const currentEndTime = value?.endTime || formatTimeHHMM(def.endDate);
+
+  const startDateObj = parseHHMMOnDate(currentDate, currentStartTime);
+  const endDateObj = parseHHMMOnDate(currentDate, currentEndTime);
+
+  const commitChange = (nextDate: Date, nextStartStr: string, nextEndStr: string) => {
+    const startObj = parseHHMMOnDate(nextDate, nextStartStr);
+    const endObj = parseHHMMOnDate(nextDate, nextEndStr);
+
+    const startTotalMins = startObj.getHours() * 60 + startObj.getMinutes();
+    const endTotalMins = endObj.getHours() * 60 + endObj.getMinutes();
+
+    if (startTotalMins >= endTotalMins) {
+      setValidationError('Jam mulai harus lebih awal dari jam selesai.');
+      return;
+    }
+
+    const durationMins = endTotalMins - startTotalMins;
+    if (durationMins < 15) {
+      setValidationError('Durasi praktikum minimal 15 menit.');
+      return;
+    }
+    if (durationMins > 480) {
+      setValidationError('Durasi praktikum maksimal 8 jam.');
+      return;
+    }
+
+    setValidationError(null);
+    onChange({
+      date: nextDate,
+      startTime: nextStartStr,
+      endTime: nextEndStr,
+      scheduledAt: Timestamp.fromDate(startObj),
+      scheduledEndAt: Timestamp.fromDate(endObj),
+      timeSlot: formatSessionScheduleLabel(startObj, endObj),
+    });
+  };
+
   const handleDateChange = (
-    _event: DateTimePickerEvent,
+    event: DateTimePickerEvent,
     selectedDate?: Date
   ) => {
-    setShowDatePicker(false);
-    if (!selectedDate) return;
+    if (Platform.OS !== 'ios') {
+      setActivePicker(null);
+    }
+    if (event.type === 'dismissed' || !selectedDate) return;
 
-    // Validasi: tanggal tidak boleh di masa lalu (hanya bandingkan tanggal tanpa jam)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const chosen = new Date(selectedDate.getTime());
@@ -64,62 +121,34 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
       return;
     }
 
-    setValidationError(null);
-    validateAndUpdate(selectedDate, startTimeInput, endTimeInput);
+    commitChange(selectedDate, currentStartTime, currentEndTime);
   };
 
-  const validateTimeFormat = (timeStr: string): boolean => {
-    const regex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-    return regex.test(timeStr.trim());
+  const handleStartTimeChange = (
+    event: DateTimePickerEvent,
+    selectedTime?: Date
+  ) => {
+    if (Platform.OS !== 'ios') {
+      setActivePicker(null);
+    }
+    if (event.type === 'dismissed' || !selectedTime) return;
+    const nextStart = formatTimeHHMM(selectedTime);
+    commitChange(currentDate, nextStart, currentEndTime);
   };
 
-  const validateAndUpdate = (date: Date, start: string, end: string) => {
-    if (!validateTimeFormat(start)) {
-      setValidationError('Format jam mulai salah (harus HH:MM).');
-      return;
+  const handleEndTimeChange = (
+    event: DateTimePickerEvent,
+    selectedTime?: Date
+  ) => {
+    if (Platform.OS !== 'ios') {
+      setActivePicker(null);
     }
-    if (!validateTimeFormat(end)) {
-      setValidationError('Format jam selesai salah (harus HH:MM).');
-      return;
-    }
-
-    const [startH, startM] = start.split(':').map((n) => parseInt(n, 10));
-    const [endH, endM] = end.split(':').map((n) => parseInt(n, 10));
-    const startTotalMins = startH * 60 + startM;
-    const endTotalMins = endH * 60 + endM;
-
-    // Validasi: Jam mulai < Jam selesai
-    if (startTotalMins >= endTotalMins) {
-      setValidationError('Jam mulai harus lebih awal dari jam selesai.');
-      return;
-    }
-
-    // Durasi minimal 30 menit, maksimal 8 jam (480 menit)
-    const durationMins = endTotalMins - startTotalMins;
-    if (durationMins < 30) {
-      setValidationError('Durasi praktikum minimal 30 menit.');
-      return;
-    }
-    if (durationMins > 480) {
-      setValidationError('Durasi praktikum maksimal 8 jam.');
-      return;
-    }
-
-    setValidationError(null);
-    onChange({
-      date,
-      startTime: start,
-      endTime: end,
-    });
+    if (event.type === 'dismissed' || !selectedTime) return;
+    const nextEnd = formatTimeHHMM(selectedTime);
+    commitChange(currentDate, currentStartTime, nextEnd);
   };
 
-  // Preview formatting
-  const startTs = buildTimestamp(currentDate, currentStartTime);
-  const formattedDate = formatJakartaTime(startTs);
-  const previewLabel = `${formattedDate.split(',')[0]}, ${currentDate.toLocaleDateString(
-    'id-ID',
-    { day: 'numeric', month: 'short', year: 'numeric' }
-  )}, ${currentStartTime} – ${currentEndTime} WIB`;
+  const previewLabel = formatSessionScheduleLabel(startDateObj, endDateObj);
 
   return (
     <View style={styles.card}>
@@ -127,15 +156,18 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
 
       {/* Date Picker Button */}
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Pilih Tanggal Sesi</Text>
+        <Text style={styles.label}>Tanggal Sesi</Text>
         <TouchableOpacity
-          style={[styles.dateButton, disabled && styles.disabled]}
-          onPress={() => !disabled && setShowDatePicker(true)}
+          style={[styles.pickerButton, disabled && styles.disabled]}
+          onPress={() =>
+            !disabled &&
+            setActivePicker(activePicker === 'date' ? null : 'date')
+          }
           disabled={disabled}
           activeOpacity={0.7}
         >
-          <Text style={styles.dateIcon}>📅</Text>
-          <Text style={styles.dateText}>
+          <Text style={styles.pickerIcon}>📅</Text>
+          <Text style={styles.pickerText}>
             {currentDate.toLocaleDateString('id-ID', {
               weekday: 'long',
               day: 'numeric',
@@ -146,35 +178,46 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
         </TouchableOpacity>
       </View>
 
-      {showDatePicker && (
-        <DateTimePicker
-          value={currentDate}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          minimumDate={new Date()}
-          onChange={handleDateChange}
-        />
+      {activePicker === 'date' && (
+        <View style={styles.nativePickerWrap}>
+          <DateTimePicker
+            value={currentDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            minimumDate={new Date()}
+            onChange={handleDateChange}
+          />
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity
+              style={styles.iosDoneBtn}
+              onPress={() => setActivePicker(null)}
+            >
+              <Text style={styles.iosDoneText}>Selesai</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       )}
 
-      {/* Two columns for Start Time & End Time */}
+      {/* Time Picker Buttons (Start & End via DateTimePicker) */}
       <View style={styles.timeRow}>
         <View style={styles.timeColumn}>
-          <Text style={styles.label}>Jam Mulai (HH:MM)</Text>
-          <TextInput
-            style={[styles.input, disabled && styles.disabled]}
-            value={startTimeInput}
-            onChangeText={(text) => {
-              setStartTimeInput(text);
-              if (validateTimeFormat(text) && validateTimeFormat(endTimeInput)) {
-                validateAndUpdate(currentDate, text, endTimeInput);
-              }
-            }}
-            placeholder="13:00"
-            placeholderTextColor="#9CA3AF"
-            keyboardType="numbers-and-punctuation"
-            maxLength={5}
-            editable={!disabled}
-          />
+          <Text style={styles.label}>Jam Mulai</Text>
+          <TouchableOpacity
+            style={[
+              styles.timeButton,
+              activePicker === 'start' && styles.timeButtonActive,
+              disabled && styles.disabled,
+            ]}
+            onPress={() =>
+              !disabled &&
+              setActivePicker(activePicker === 'start' ? null : 'start')
+            }
+            disabled={disabled}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.timeIcon}>🕒</Text>
+            <Text style={styles.timeValue}>{currentStartTime} WIB</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.timeDivider}>
@@ -182,24 +225,65 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
         </View>
 
         <View style={styles.timeColumn}>
-          <Text style={styles.label}>Jam Selesai (HH:MM)</Text>
-          <TextInput
-            style={[styles.input, disabled && styles.disabled]}
-            value={endTimeInput}
-            onChangeText={(text) => {
-              setEndTimeInput(text);
-              if (validateTimeFormat(startTimeInput) && validateTimeFormat(text)) {
-                validateAndUpdate(currentDate, startTimeInput, text);
-              }
-            }}
-            placeholder="15:30"
-            placeholderTextColor="#9CA3AF"
-            keyboardType="numbers-and-punctuation"
-            maxLength={5}
-            editable={!disabled}
-          />
+          <Text style={styles.label}>Jam Selesai</Text>
+          <TouchableOpacity
+            style={[
+              styles.timeButton,
+              activePicker === 'end' && styles.timeButtonActive,
+              disabled && styles.disabled,
+            ]}
+            onPress={() =>
+              !disabled &&
+              setActivePicker(activePicker === 'end' ? null : 'end')
+            }
+            disabled={disabled}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.timeIcon}>🕒</Text>
+            <Text style={styles.timeValue}>{currentEndTime} WIB</Text>
+          </TouchableOpacity>
         </View>
       </View>
+
+      {activePicker === 'start' && (
+        <View style={styles.nativePickerWrap}>
+          <DateTimePicker
+            value={startDateObj}
+            mode="time"
+            is24Hour
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleStartTimeChange}
+          />
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity
+              style={styles.iosDoneBtn}
+              onPress={() => setActivePicker(null)}
+            >
+              <Text style={styles.iosDoneText}>Selesai</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {activePicker === 'end' && (
+        <View style={styles.nativePickerWrap}>
+          <DateTimePicker
+            value={endDateObj}
+            mode="time"
+            is24Hour
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleEndTimeChange}
+          />
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity
+              style={styles.iosDoneBtn}
+              onPress={() => setActivePicker(null)}
+            >
+              <Text style={styles.iosDoneText}>Selesai</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* Validation Error */}
       {validationError ? (
@@ -210,7 +294,7 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
 
       {/* Preview Card */}
       <View style={styles.previewBox}>
-        <Text style={styles.previewLabel}>Preview Jadwal Terstruktur:</Text>
+        <Text style={styles.previewLabel}>Jadwal Terpilih:</Text>
         <Text style={styles.previewValue}>{previewLabel}</Text>
       </View>
     </View>
@@ -223,27 +307,27 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    marginVertical: 8,
+    marginVertical: 4,
   },
   cardTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   inputGroup: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#4B5563',
-    marginBottom: 6,
+    marginBottom: 5,
   },
-  dateButton: {
+  pickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
@@ -253,14 +337,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: '#F9FAFB',
   },
-  dateIcon: {
-    fontSize: 16,
+  pickerIcon: {
+    fontSize: 15,
     marginRight: 8,
   },
-  dateText: {
+  pickerText: {
     fontSize: 13,
     color: '#1F2937',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   timeRow: {
     flexDirection: 'row',
@@ -273,7 +357,7 @@ const styles = StyleSheet.create({
   },
   timeDivider: {
     paddingHorizontal: 8,
-    paddingTop: 18,
+    paddingTop: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -282,21 +366,49 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#9CA3AF',
   },
-  input: {
+  timeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     borderWidth: 1,
     borderColor: '#D1D5DB',
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: '#F9FAFB',
+  },
+  timeButtonActive: {
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+  },
+  timeIcon: {
+    fontSize: 13,
+  },
+  timeValue: {
+    fontSize: 13,
     color: '#111827',
-    backgroundColor: '#FFFFFF',
-    textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  nativePickerWrap: {
+    marginBottom: 8,
+  },
+  iosDoneBtn: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#111827',
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  iosDoneText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   disabled: {
     backgroundColor: '#F3F4F6',
-    color: '#9CA3AF',
+    opacity: 0.7,
   },
   errorBox: {
     backgroundColor: '#FEF2F2',
@@ -318,16 +430,16 @@ const styles = StyleSheet.create({
     borderColor: '#BBF7D0',
     borderRadius: 8,
     padding: 10,
-    marginTop: 4,
+    marginTop: 2,
   },
   previewLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: '#166534',
     marginBottom: 2,
   },
   previewValue: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#15803D',
   },

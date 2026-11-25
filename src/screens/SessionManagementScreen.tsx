@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -24,7 +25,10 @@ import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
 import { EmptyState } from '../components/EmptyState';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { SessionFormModal } from '../components/SessionFormModal';
+import {
+  SessionFormModal,
+  SessionFormSubmitData,
+} from '../components/SessionFormModal';
 import { getErrorMessage } from '../utils/getErrorMessage';
 import { getSessionStatusLabel } from '../utils/labelUtils';
 import { theme } from '../theme';
@@ -56,7 +60,7 @@ const STATUS_CONFIG: Record<
 export const SessionManagementScreen: React.FC = () => {
   const router = useRouter();
   const { profile } = useAuth();
-  const { sessions, loading, error, refresh } = useSessions();
+  const { sessions, loading, refreshing, error, refresh } = useSessions();
 
   // Form Modal state
   const [formModalVisible, setFormModalVisible] = useState(false);
@@ -112,22 +116,17 @@ export const SessionManagementScreen: React.FC = () => {
     }
   };
 
-  const handleSubmitForm = async (data: {
-    classId: string;
-    courseTitle: string;
-    moduleName: string;
-    classGroup: string;
-    roomName: string;
-    timeSlot: string;
-    participantIds: string[];
-  }) => {
+  const handleSubmitForm = async (data: SessionFormSubmitData) => {
     if (selectedSession) {
       await updateSession(selectedSession.id, {
         moduleName: data.moduleName,
         timeSlot: data.timeSlot,
+        scheduledAt: data.scheduledAt,
+        scheduledEndAt: data.scheduledEndAt,
         courseTitle: data.courseTitle,
         classGroup: data.classGroup,
         roomName: data.roomName,
+        sessionType: data.sessionType,
         participantIds: data.participantIds,
       });
     } else {
@@ -209,6 +208,9 @@ export const SessionManagementScreen: React.FC = () => {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={refresh} />
+            }
             renderItem={({ item }) => {
               const statusCfg =
                 STATUS_CONFIG[item.status] || STATUS_CONFIG.BELUM_DIBUKA;

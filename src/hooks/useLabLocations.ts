@@ -4,33 +4,36 @@ import {
   listenLabLocations,
   seedLabLocationsIfEmpty,
 } from '../services/labLocationService';
-import { LAB_LOCATIONS_SEED } from '../data/labLocations';
+import { PREDEFINED_LABS } from '../data/labLocations';
+
+const OFFICIAL_LAB_IDS = new Set(PREDEFINED_LABS.map((l) => l.id));
+
+const buildFallbackLabs = (): LabLocation[] =>
+  PREDEFINED_LABS.map((s) => ({
+    ...s,
+    createdBy: 'official_seed',
+    updatedAt: null,
+  }));
 
 export function useLabLocations() {
-  const [labs, setLabs] = useState<LabLocation[]>([]);
+  const [labs, setLabs] = useState<LabLocation[]>(buildFallbackLabs());
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    // Pastikan jika koleksi kosong di Firestore, kita seed data awal
+    // Pastikan 4 lab resmi (Lab B, Lab C, Lab D, Lab AP) tersedia dengan koordinat & radius 150m
     seedLabLocationsIfEmpty().catch(() => {});
 
     const unsubscribe = listenLabLocations(
       (updatedLabs) => {
         if (!isMounted) return;
-        if (updatedLabs.length === 0) {
-          // Fallback lokal sementara jika Firestore belum terisi
-          setLabs(
-            LAB_LOCATIONS_SEED.map((s) => ({
-              ...s,
-              createdBy: 'seed',
-              updatedAt: null,
-            }))
-          );
+        const officialLabs = updatedLabs.filter((l) => OFFICIAL_LAB_IDS.has(l.id));
+        if (officialLabs.length === 0) {
+          setLabs(buildFallbackLabs());
         } else {
-          setLabs(updatedLabs);
+          setLabs(officialLabs);
         }
         setLoading(false);
         setError(null);
@@ -38,13 +41,7 @@ export function useLabLocations() {
       (err) => {
         if (!isMounted) return;
         console.warn('listenLabLocations error, using fallback:', err);
-        setLabs(
-          LAB_LOCATIONS_SEED.map((s) => ({
-            ...s,
-            createdBy: 'seed',
-            updatedAt: null,
-          }))
-        );
+        setLabs(buildFallbackLabs());
         setLoading(false);
       }
     );

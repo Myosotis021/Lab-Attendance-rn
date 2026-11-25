@@ -10,38 +10,85 @@ import {
   Pressable,
   ActivityIndicator,
 } from 'react-native';
-import { SessionItem, ClassItem } from '../types/models';
+import { Timestamp } from 'firebase/firestore';
+import { SessionItem, ClassItem, SessionType } from '../types/models';
 import { listenClasses } from '../services/classService';
+import { TimeSlotPicker, TimeSlotPickerValue } from './TimeSlotPicker';
+import { RoomPlaceSelector } from './RoomPlaceSelector';
+import { isOnlineRoom } from '../data/labLocations';
+import {
+  formatSessionScheduleLabel,
+  getDefaultSessionSchedule,
+  toJakartaDate,
+} from '../utils/timeUtils';
 import { theme } from '../theme';
+
+export interface SessionFormSubmitData {
+  classId: string;
+  courseTitle: string;
+  moduleName: string;
+  classGroup: string;
+  roomName: string;
+  sessionType: SessionType;
+  timeSlot: string;
+  scheduledAt: Timestamp;
+  scheduledEndAt: Timestamp;
+  participantIds: string[];
+}
 
 interface SessionFormModalProps {
   visible: boolean;
   initialData?: SessionItem | null;
   onClose: () => void;
-  onSubmit: (data: {
-    classId: string;
-    courseTitle: string;
-    moduleName: string;
-    classGroup: string;
-    roomName: string;
-    timeSlot: string;
-    participantIds: string[];
-  }) => Promise<void>;
+  onSubmit: (data: SessionFormSubmitData) => Promise<void>;
 }
 
 interface FormContentProps {
   initialData?: SessionItem | null;
   onClose: () => void;
-  onSubmit: (data: {
-    classId: string;
-    courseTitle: string;
-    moduleName: string;
-    classGroup: string;
-    roomName: string;
-    timeSlot: string;
-    participantIds: string[];
-  }) => Promise<void>;
+  onSubmit: (data: SessionFormSubmitData) => Promise<void>;
 }
+
+const buildInitialTimeSlotValue = (
+  initialData?: SessionItem | null
+): TimeSlotPickerValue => {
+  const def = getDefaultSessionSchedule();
+  if (
+    initialData?.usesDateTimePicker &&
+    initialData.scheduledAt &&
+    initialData.scheduledEndAt
+  ) {
+    const sDate = toJakartaDate(initialData.scheduledAt) || def.startDate;
+    const eDate = toJakartaDate(initialData.scheduledEndAt) || def.endDate;
+    const sHHMM = `${String(sDate.getHours()).padStart(2, '0')}:${String(
+      sDate.getMinutes()
+    ).padStart(2, '0')}`;
+    const eHHMM = `${String(eDate.getHours()).padStart(2, '0')}:${String(
+      eDate.getMinutes()
+    ).padStart(2, '0')}`;
+    return {
+      date: sDate,
+      startTime: sHHMM,
+      endTime: eHHMM,
+      scheduledAt: Timestamp.fromDate(sDate),
+      scheduledEndAt: Timestamp.fromDate(eDate),
+      timeSlot: formatSessionScheduleLabel(sDate, eDate),
+    };
+  }
+
+  return {
+    date: def.startDate,
+    startTime: `${String(def.startDate.getHours()).padStart(2, '0')}:${String(
+      def.startDate.getMinutes()
+    ).padStart(2, '0')}`,
+    endTime: `${String(def.endDate.getHours()).padStart(2, '0')}:${String(
+      def.endDate.getMinutes()
+    ).padStart(2, '0')}`,
+    scheduledAt: def.scheduledAt,
+    scheduledEndAt: def.scheduledEndAt,
+    timeSlot: def.timeSlot,
+  };
+};
 
 const SessionFormContent: React.FC<FormContentProps> = ({
   initialData,
@@ -53,7 +100,14 @@ const SessionFormContent: React.FC<FormContentProps> = ({
     initialData?.classId || ''
   );
   const [moduleName, setModuleName] = useState(initialData?.moduleName || '');
-  const [timeSlot, setTimeSlot] = useState(initialData?.timeSlot || '');
+  const [roomName, setRoomName] = useState(initialData?.roomName || 'Lab B');
+  const [sessionType, setSessionType] = useState<SessionType>(
+    initialData?.sessionType ||
+      (isOnlineRoom(initialData?.roomName) ? 'ONLINE' : 'OFFLINE')
+  );
+  const [scheduleValue, setScheduleValue] = useState<TimeSlotPickerValue>(() =>
+    buildInitialTimeSlotValue(initialData)
+  );
 
   const [loadingClasses, setLoadingClasses] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -61,6 +115,7 @@ const SessionFormContent: React.FC<FormContentProps> = ({
   const [errors, setErrors] = useState<{
     classId?: string;
     moduleName?: string;
+    roomName?: string;
     timeSlot?: string;
     submit?: string;
   }>({});
@@ -81,6 +136,17 @@ const SessionFormContent: React.FC<FormContentProps> = ({
     };
   }, []);
 
+  const handleSelectClass = (chosen: ClassItem) => {
+    setSelectedClassId(chosen.id);
+    if (!initialData && chosen.roomName) {
+      setRoomName(chosen.roomName);
+      setSessionType(isOnlineRoom(chosen.roomName) ? 'ONLINE' : 'OFFLINE');
+    }
+    if (errors.classId) {
+      setErrors((prev) => ({ ...prev, classId: undefined }));
+    }
+  };
+
   const handleSubmit = async () => {
     const newErrors: typeof errors = {};
 
@@ -90,8 +156,11 @@ const SessionFormContent: React.FC<FormContentProps> = ({
     if (!moduleName.trim()) {
       newErrors.moduleName = 'Topik / modul praktikum wajib diisi.';
     }
-    if (!timeSlot.trim()) {
-      newErrors.timeSlot = 'Jadwal / waktu pelaksanaan wajib diisi.';
+    if (sessionType !== 'ONLINE' && !roomName.trim()) {
+      newErrors.roomName = 'Tempat / ruangan sesi wajib dipilih atau diisi.';
+    }
+    if (!scheduleValue.scheduledAt || !scheduleValue.scheduledEndAt) {
+      newErrors.timeSlot = 'Jadwal tanggal dan jam sesi wajib dipilih.';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -105,6 +174,8 @@ const SessionFormContent: React.FC<FormContentProps> = ({
       return;
     }
 
+    const def = getDefaultSessionSchedule(scheduleValue.date);
+
     try {
       setSubmitting(true);
       setErrors({});
@@ -112,9 +183,12 @@ const SessionFormContent: React.FC<FormContentProps> = ({
         classId: chosenClass.id,
         courseTitle: chosenClass.courseTitle,
         classGroup: chosenClass.classGroup,
-        roomName: chosenClass.roomName,
+        roomName: sessionType === 'ONLINE' ? 'Online' : roomName.trim(),
+        sessionType,
         moduleName: moduleName.trim(),
-        timeSlot: timeSlot.trim(),
+        timeSlot: scheduleValue.timeSlot || def.timeSlot,
+        scheduledAt: scheduleValue.scheduledAt || def.scheduledAt,
+        scheduledEndAt: scheduleValue.scheduledEndAt || def.scheduledEndAt,
         participantIds: chosenClass.participantIds,
       });
       onClose();
@@ -132,7 +206,7 @@ const SessionFormContent: React.FC<FormContentProps> = ({
         {initialData ? 'Ubah Data Sesi' : 'Tambah Sesi Praktikum'}
       </Text>
       <Text style={styles.subtitle}>
-        Pilih kelas praktikum acuan, tentukan materi modul, serta jadwal pelaksanaan.
+        Pilih kelas, tempat pelaksanaan (Lab B/C/D/AP, Online, atau Lainnya), serta jadwal via DateTimePicker.
       </Text>
 
       {errors.submit ? (
@@ -163,10 +237,7 @@ const SessionFormContent: React.FC<FormContentProps> = ({
                     styles.classItem,
                     selected && styles.classItemSelected,
                   ]}
-                  onPress={() => {
-                    setSelectedClassId(c.id);
-                    if (errors.classId) setErrors((prev) => ({ ...prev, classId: undefined }));
-                  }}
+                  onPress={() => handleSelectClass(c)}
                   activeOpacity={0.7}
                 >
                   <View style={[styles.radioCircle, selected && styles.radioCircleSelected]}>
@@ -207,19 +278,31 @@ const SessionFormContent: React.FC<FormContentProps> = ({
         ) : null}
       </View>
 
-      {/* Waktu Pelaksanaan */}
+      {/* Tempat Pelaksanaan (Lab B/C/D/AP, Online, Lainnya) */}
+      <View style={styles.fieldContainer}>
+        <Text style={styles.label}>Tempat Pelaksanaan *</Text>
+        <RoomPlaceSelector
+          value={roomName}
+          onChange={(nextRoom, nextType) => {
+            setRoomName(nextRoom);
+            setSessionType(nextType);
+            if (errors.roomName) setErrors((prev) => ({ ...prev, roomName: undefined }));
+          }}
+          disabled={submitting}
+          error={errors.roomName}
+        />
+      </View>
+
+      {/* Waktu Pelaksanaan (DateTimePicker) */}
       <View style={styles.fieldContainer}>
         <Text style={styles.label}>Jadwal / Waktu Pelaksanaan *</Text>
-        <TextInput
-          style={[styles.input, errors.timeSlot ? styles.inputError : null]}
-          placeholder="Contoh: Senin, 08:00 - 10:00 WIB"
-          placeholderTextColor={theme.colors.textMuted}
-          value={timeSlot}
-          onChangeText={(text) => {
-            setTimeSlot(text);
+        <TimeSlotPicker
+          value={scheduleValue}
+          onChange={(val) => {
+            setScheduleValue(val);
             if (errors.timeSlot) setErrors((prev) => ({ ...prev, timeSlot: undefined }));
           }}
-          editable={!submitting}
+          disabled={submitting}
         />
         {errors.timeSlot ? (
           <Text style={styles.errorText}>{errors.timeSlot}</Text>
@@ -294,7 +377,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: theme.borderRadius.xxl,
     borderTopRightRadius: theme.borderRadius.xxl,
     padding: 24,
-    maxHeight: '90%',
+    maxHeight: '92%',
     ...theme.shadows.card,
   },
   title: {
@@ -306,7 +389,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 12,
     color: theme.colors.textSecondary,
-    marginBottom: 18,
+    marginBottom: 16,
     lineHeight: 18,
   },
   errorAlert: {
@@ -361,7 +444,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   classList: {
-    maxHeight: 160,
+    maxHeight: 150,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.md,
@@ -414,8 +497,8 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 18,
-    marginBottom: 10,
+    marginTop: 14,
+    marginBottom: 14,
   },
   cancelBtn: {
     flex: 1,

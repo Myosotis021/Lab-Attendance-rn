@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
 import { PermissionStatusType } from '../hooks/useCurrentLocation';
@@ -15,7 +14,7 @@ export interface LocationStatusCardProps {
   withinRadius: boolean | null;
   permissionStatus: PermissionStatusType;
   accuracy: number | null;
-  onRefresh: () => void;
+  onRefresh?: () => void;
   errorMessage?: string | null;
 }
 
@@ -26,7 +25,6 @@ export const LocationStatusCard: React.FC<LocationStatusCardProps> = ({
   withinRadius,
   permissionStatus,
   accuracy,
-  onRefresh,
   errorMessage,
 }) => {
   const isLoading =
@@ -96,18 +94,11 @@ export const LocationStatusCard: React.FC<LocationStatusCardProps> = ({
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={onRefresh}
-          activeOpacity={0.7}
-          disabled={isLoading}
-        >
-          {isLoading ? (
+        {isLoading && (
+          <View style={styles.refreshButton}>
             <ActivityIndicator size="small" color="#2563EB" />
-          ) : (
-            <Text style={{ fontSize: 14 }}>🔄</Text>
-          )}
-        </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Baris Informasi Jarak & Badge */}

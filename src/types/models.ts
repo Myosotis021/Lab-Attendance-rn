@@ -3,9 +3,22 @@ import { Timestamp } from 'firebase/firestore';
 export type Role = 'asisten' | 'praktikan';
 export type RoleType = Role;
 export type SessionStatus = 'BELUM_DIBUKA' | 'BERJALAN' | 'SELESAI';
+/** 'OFFLINE' = presensi berbasis lokasi GPS, 'ONLINE' = presensi via QR code */
+export type SessionType = 'OFFLINE' | 'ONLINE';
 export type AttendanceStatus = 'Hadir' | 'Izin' | 'Sakit';
 export type LeaveStatus = 'MENUNGGU' | 'DITERIMA' | 'DITOLAK';
 export type SentimentLabel = 'negatif' | 'netral' | 'positif';
+
+/** Pilihan lab yang tersedia di picker asprak */
+export interface PredefinedLab {
+  id: string;
+  name: string;
+  building: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  description?: string;
+}
 
 export interface UserProfile {
   uid: string;
@@ -35,14 +48,29 @@ export interface SessionItem {
   courseTitle: string;
   moduleName: string;
   classGroup: string;
+  /** 'Lab B & C' | 'Lab D' | 'Lab AP' | 'Online' | custom */
   roomName: string;
   timeSlot: string;
   scheduledAt?: Timestamp;
   scheduledEndAt?: Timestamp;
   status: SessionStatus;
+  /** 'OFFLINE' (default, berbasis lokasi) atau 'ONLINE' (berbasis QR code) */
+  sessionType?: SessionType;
+  /**
+   * Token QR yang di-generate asprak saat sesi Online dibuka.
+   * Praktikan scan QR ini untuk presensi.
+   */
+  qrToken?: string;
+  /**
+   * Koordinat asprak saat membuka sesi (untuk OFFLINE tanpa lab terdaftar).
+   * Jika lab terdaftar, gunakan koordinat lab. PM rule: radius 150 m.
+   */
+  assistantLat?: number;
+  assistantLng?: number;
   participantIds: string[];
   createdBy: string;
   createdAt: Timestamp;
+  usesDateTimePicker?: boolean;
 }
 
 export interface SessionDoc {
@@ -55,9 +83,14 @@ export interface SessionDoc {
   scheduledAt?: Timestamp;
   scheduledEndAt?: Timestamp;
   status: SessionStatus;
+  sessionType?: SessionType;
+  qrToken?: string;
+  assistantLat?: number;
+  assistantLng?: number;
   participantIds?: string[];
   openedAt?: any;
   closedAt?: any;
+  usesDateTimePicker?: boolean;
 }
 
 export interface SentimentResult {
@@ -123,7 +156,7 @@ export interface LabLocation {
   building: string;    // "Gedung Informatika Lt.2"
   latitude: number;    // koordinat WGS-84
   longitude: number;
-  radiusMeters: number; // radius presensi — default 100m (koreksi PM)
+  radiusMeters: number; // radius presensi — default 150m (PM Sprint 3)
   description?: string;
   createdBy: string;
   updatedAt: any;      // Firestore Timestamp

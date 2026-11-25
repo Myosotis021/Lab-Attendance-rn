@@ -15,6 +15,7 @@ import { Feather } from '@expo/vector-icons';
 import { ClassItem, UserProfile } from '../types/models';
 import { getStudents } from '../services/classService';
 import { useAuth } from '../hooks/useAuth';
+import { RoomPlaceSelector } from './RoomPlaceSelector';
 import { theme } from '../theme';
 
 interface ClassFormModalProps {
@@ -47,7 +48,7 @@ const ClassFormContent: React.FC<FormContentProps> = ({
 }) => {
   const [courseTitle, setCourseTitle] = useState(initialData?.courseTitle || '');
   const [classGroup, setClassGroup] = useState(initialData?.classGroup || '');
-  const [roomName, setRoomName] = useState(initialData?.roomName || '');
+  const [roomName, setRoomName] = useState(initialData?.roomName || 'Lab B');
   const [participantIds, setParticipantIds] = useState<string[]>(
     initialData?.participantIds || []
   );
@@ -204,23 +205,18 @@ const ClassFormContent: React.FC<FormContentProps> = ({
         ) : null}
       </View>
 
-      {/* Ruangan Lab */}
+      {/* Ruangan / Tempat Lab */}
       <View style={styles.fieldContainer}>
-        <Text style={styles.label}>Ruangan Lab *</Text>
-        <TextInput
-          style={[styles.input, errors.roomName ? styles.inputError : null]}
-          placeholder="Contoh: Lab Komputer 2"
-          placeholderTextColor={theme.colors.textMuted}
+        <Text style={styles.label}>Tempat / Ruangan Praktikum *</Text>
+        <RoomPlaceSelector
           value={roomName}
-          onChangeText={(text) => {
-            setRoomName(text);
+          onChange={(nextRoom) => {
+            setRoomName(nextRoom);
             if (errors.roomName) setErrors((prev) => ({ ...prev, roomName: undefined }));
           }}
-          editable={!submitting}
+          disabled={submitting}
+          error={errors.roomName}
         />
-        {errors.roomName ? (
-          <Text style={styles.errorText}>{errors.roomName}</Text>
-        ) : null}
       </View>
 
       {/* Peserta Praktikan */}

@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   View,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -32,7 +33,7 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
 }) => {
   const router = useRouter();
   const { profile, switchRole, logout } = useAuth();
-  const { sessions, loading, error, refresh } = useSessions();
+  const { sessions, loading, refreshing, error, refresh } = useSessions();
   const [activeTab, setActiveTab] = useState<TabFilter>('SEMUA');
   const [menuVisible, setMenuVisible] = useState(false);
 
@@ -108,13 +109,13 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={refresh} />
+          }
         >
           {/* Section 1: Dashboard & Filter Pills */}
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionTitle}>Dashboard</Text>
-            <TouchableOpacity onPress={refresh} activeOpacity={0.7}>
-              <Text style={styles.sectionLink}>REFRESH »</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Outlined Pill Tabs */}

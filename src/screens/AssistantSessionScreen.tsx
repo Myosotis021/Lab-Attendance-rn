@@ -15,6 +15,8 @@ import {
   AttendanceRecapList,
   INITIAL_ATTENDEES,
 } from '../components/AttendanceRecapList';
+import { EditLabLocationModal } from '../components/EditLabLocationModal';
+import { useLabLocations } from '../hooks/useLabLocations';
 
 export interface AssistantSessionScreenProps {
   session?: SessionItem;
@@ -86,6 +88,24 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
   const [pendingAction, setPendingAction] = useState<'OPEN' | 'CLOSE' | null>(
     null
   );
+
+  // Edit Lab Location modal state (Developer 1 - Sprint 3)
+  const { labs } = useLabLocations();
+  const [editLabModalVisible, setEditLabModalVisible] = useState<boolean>(false);
+
+  // Cocokkan lab berdasarkan ruangan sesi
+  const matchedLab = React.useMemo(() => {
+    if (labs.length === 0) return null;
+    const room = (initialSession.roomName || '').toLowerCase();
+    return (
+      labs.find(
+        (l) =>
+          l.name.toLowerCase().includes(room) ||
+          room.includes(l.name.toLowerCase()) ||
+          l.id.toLowerCase().includes(room)
+      ) || labs[0]
+    );
+  }, [labs, initialSession.roomName]);
 
   // Status configuration for badge
   const getStatusBadgeConfig = (status: SessionStatus) => {
@@ -300,6 +320,23 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
           )}
         </View>
 
+        {/* Fitur Dev 1 (Sprint 3): Pengaturan Lokasi Laboratorium oleh Asisten */}
+        <View style={styles.actionSection}>
+          <Text style={styles.sectionHeading}>Pengaturan Lokasi Laboratorium</Text>
+          <TouchableOpacity
+            style={styles.btnEditLabLocation}
+            onPress={() => setEditLabModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnEditLabLocationText}>
+              ⚙ Edit Lokasi Lab ({matchedLab?.name || initialSession.roomName})
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.actionHint}>
+            Radius presensi saat ini: {matchedLab?.radiusMeters || 100} m • Koordinat: {matchedLab?.latitude.toFixed(4) ?? '-' }, {matchedLab?.longitude.toFixed(4) ?? '-'}
+          </Text>
+        </View>
+
         {/* Interactive Demo Helpers (for Examiners/Reviewers) */}
         <View style={styles.demoBox}>
           <Text style={styles.demoTitle}>🛠️ Mode Pengujian Demo (Sprint 1)</Text>
@@ -359,6 +396,13 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
         confirmVariant={pendingAction === 'OPEN' ? 'success' : 'danger'}
         onConfirm={handleConfirmAction}
         onCancel={handleCancelAction}
+      />
+
+      {/* Edit Lab Location Modal (Developer 1 - Sprint 3) */}
+      <EditLabLocationModal
+        visible={editLabModalVisible}
+        lab={matchedLab}
+        onClose={() => setEditLabModalVisible(false)}
       />
     </SafeAreaView>
   );
@@ -528,6 +572,19 @@ const styles = StyleSheet.create({
   btnDisabled: {
     backgroundColor: '#9CA3AF',
     opacity: 0.5,
+  },
+  btnEditLabLocation: {
+    backgroundColor: '#2563EB',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+  },
+  btnEditLabLocationText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   mainActionButtonText: {
     color: '#FFFFFF',

@@ -306,6 +306,37 @@ export const StudentAttendanceScreen: React.FC<StudentAttendanceScreenProps> = (
           </View>
         </View>
 
+        {/* Fitur S3-01 / S3-02: Navigasi ke Halaman Presensi Terpisah Berbasis Lokasi GPS */}
+        <TouchableOpacity
+          style={styles.locationNavButton}
+          onPress={() => {
+            router.push({
+              pathname: '/attendance',
+              params: {
+                sessionId: currentSession.id,
+                courseTitle: currentSession.courseTitle,
+                moduleName: currentSession.moduleName,
+                classGroup: currentSession.classGroup,
+                roomName: currentSession.roomName,
+                timeSlot: currentSession.timeSlot,
+                status: currentSession.status,
+              },
+            });
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={{ fontSize: 18 }}>📍</Text>
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.locationNavTitle}>
+              Halaman Presensi Berbasis Lokasi (GPS)
+            </Text>
+            <Text style={styles.locationNavSubtitle}>
+              Presensi mandiri dengan validasi radius GPS & anti-double submit
+            </Text>
+          </View>
+          <Text style={{ fontSize: 18, color: '#2563EB', fontWeight: '800' }}>»</Text>
+        </TouchableOpacity>
+
         {/* Conditional Content based on Session Status and Attendance State */}
         {currentSession.status === 'BELUM_DIBUKA' ? (
           /* Gating 1: Session not yet opened */
@@ -687,6 +718,27 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontFamily: 'monospace',
     marginTop: 1,
+  },
+  locationNavButton: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#93C5FD',
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 2,
+  },
+  locationNavTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
+  locationNavSubtitle: {
+    fontSize: 11,
+    color: '#3B82F6',
+    marginTop: 2,
   },
   formCard: {
     backgroundColor: '#FFFFFF',

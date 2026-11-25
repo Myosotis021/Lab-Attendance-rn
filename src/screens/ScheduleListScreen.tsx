@@ -34,14 +34,33 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
     if (onSelectSession) {
       onSelectSession(session, role);
     } else {
-      Alert.alert(
-        'Detail Sesi Praktikum',
-        `Mata Kuliah: ${session.courseTitle}\n` +
-          `Modul: ${session.moduleName}\n` +
-          `Peran Aktif: ${role === 'asisten' ? 'Asisten Lab' : 'Praktikan'}\n` +
-          `Status: ${session.status}\n` +
-          `Ruang: ${session.roomName} (${session.timeSlot})`
-      );
+      if (role === 'asisten') {
+        router.push({
+          pathname: '/assistant-session',
+          params: {
+            id: session.id,
+            courseTitle: session.courseTitle,
+            moduleName: session.moduleName,
+            classGroup: session.classGroup,
+            roomName: session.roomName,
+            timeSlot: session.timeSlot,
+            status: session.status,
+          },
+        });
+      } else {
+        router.push({
+          pathname: '/attendance',
+          params: {
+            sessionId: session.id,
+            courseTitle: session.courseTitle,
+            moduleName: session.moduleName,
+            classGroup: session.classGroup,
+            roomName: session.roomName,
+            timeSlot: session.timeSlot,
+            status: session.status,
+          },
+        });
+      }
     }
   };
 
@@ -104,6 +123,22 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
           </View>
         )}
       </View>
+
+      {/* Fitur S3-04: Peta Laboratorium Interaktif (Developer 1 - Sprint 3) */}
+      <TouchableOpacity
+        style={styles.mapBanner}
+        onPress={() => router.push('/lab-map')}
+        activeOpacity={0.8}
+      >
+        <Text style={{ fontSize: 20 }}>🗺️</Text>
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <Text style={styles.mapBannerTitle}>Peta Laboratorium Interaktif</Text>
+          <Text style={styles.mapBannerSubtitle}>
+            Pantau posisi lab, radius presensi, dan aktivitas sesi real-time
+          </Text>
+        </View>
+        <Text style={{ fontSize: 18, color: '#1E40AF', fontWeight: '800' }}>»</Text>
+      </TouchableOpacity>
 
       {/* Baris Judul Bagian Jadwal + Tombol Simulasi Data Kosong */}
       <View style={styles.sectionHeader}>
@@ -285,6 +320,27 @@ const styles = StyleSheet.create({
   featureActionSmallSubtext: {
     color: '#64748B',
     fontSize: 10,
+    marginTop: 2,
+  },
+  mapBanner: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#93C5FD',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 2,
+  },
+  mapBannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
+  mapBannerSubtitle: {
+    fontSize: 11,
+    color: '#3B82F6',
     marginTop: 2,
   },
 });

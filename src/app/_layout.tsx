@@ -37,6 +37,20 @@ export default function RootLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="lab-map"
+        options={{
+          title: 'Peta Laboratorium',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="attendance"
+        options={{
+          title: 'Presensi Laboratorium',
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

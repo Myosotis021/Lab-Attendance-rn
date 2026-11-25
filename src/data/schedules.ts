@@ -4,6 +4,7 @@ export type SessionStatus = 'BELUM_DIBUKA' | 'BERJALAN' | 'SELESAI';
 
 export interface SessionItem {
   id: string;
+  classId: string;
   courseTitle: string;
   moduleName: string;
   classGroup: string;
@@ -12,6 +13,9 @@ export interface SessionItem {
   scheduledAt?: any;
   scheduledEndAt?: any;
   status: SessionStatus;
+  participantIds: string[];
+  createdBy: string;
+  createdAt: any;
 }
 
 export interface DummyUserProfile {
@@ -39,29 +43,41 @@ export const DUMMY_PROFILES: Record<Role, DummyUserProfile> = {
 export const INITIAL_SCHEDULES: SessionItem[] = [
   {
     id: 'ses-1',
+    classId: '',
     courseTitle: 'Pemrograman Perangkat Komputasi',
     moduleName: 'Modul 1: Antarmuka & Alur Praktikum',
     classGroup: 'Kelas A',
     roomName: 'Lab Komputer 2',
     timeSlot: 'Jumat, 13:00 - 15:30 WIB',
     status: 'BELUM_DIBUKA',
+    participantIds: [],
+    createdBy: '',
+    createdAt: null,
   },
   {
     id: 'ses-2',
+    classId: '',
     courseTitle: 'Jaringan Komputer',
     moduleName: 'Modul 2: Routing Dinamis',
     classGroup: 'Kelas B',
     roomName: 'Lab Jaringan',
     timeSlot: 'Sabtu, 08:00 - 10:30 WIB',
     status: 'BERJALAN',
+    participantIds: [],
+    createdBy: '',
+    createdAt: null,
   },
   {
     id: 'ses-3',
+    classId: '',
     courseTitle: 'Sistem Operasi',
     moduleName: 'Modul 3: Manajemen Memori & Proses',
     classGroup: 'Kelas C',
     roomName: 'Lab Komputer 1',
     timeSlot: 'Kamis, 10:00 - 12:30 WIB',
     status: 'SELESAI',
+    participantIds: [],
+    createdBy: '',
+    createdAt: null,
   },
 ];

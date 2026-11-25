@@ -662,6 +662,27 @@ const styles = StyleSheet.create({
   attendanceLockedContainer: {
     marginBottom: 16,
   },
+  locationNavButton: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#93C5FD',
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 2,
+  },
+  locationNavTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
+  locationNavSubtitle: {
+    fontSize: 11,
+    color: '#3B82F6',
+    marginTop: 2,
+  },
   gatingCard: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.xxl,

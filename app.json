@@ -18,6 +18,10 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "predictiveBackGestureEnabled": false,
       "package": "com.myosotis02.PPK1"
     },

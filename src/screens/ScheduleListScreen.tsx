@@ -57,9 +57,9 @@ export const ScheduleListScreen: React.FC<ScheduleListScreenProps> = ({
         });
       } else {
         router.push({
-          pathname: '/student-attendance',
+          pathname: '/attendance',
           params: {
-            id: session.id,
+            sessionId: session.id,
             courseTitle: session.courseTitle,
             moduleName: session.moduleName,
             classGroup: session.classGroup,
@@ -667,6 +667,27 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     paddingHorizontal: 14,
     paddingBottom: 14,
+  },
+  mapBanner: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#93C5FD',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 2,
+  },
+  mapBannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
+  mapBannerSubtitle: {
+    fontSize: 11,
+    color: '#3B82F6',
+    marginTop: 2,
   },
 });
 

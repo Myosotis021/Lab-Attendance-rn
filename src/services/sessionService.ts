@@ -16,6 +16,9 @@ import { db } from './firebase';
 import { SessionItem, SessionStatus } from '../types/models';
 import { isSessionTimeReached, formatJakartaTime } from '../utils/timeUtils';
 import { sendPushToUsers } from './notificationService';
+import { INITIAL_SCHEDULES } from '../data/schedules';
+
+const SESSIONS_COLLECTION = 'sessions';
 
 /**
  * Menambahkan sesi praktikum baru
@@ -33,7 +36,7 @@ export async function createSession(data: {
   scheduledAt?: Timestamp;
   scheduledEndAt?: Timestamp;
 }): Promise<string> {
-  const docRef = await addDoc(collection(db, 'sessions'), {
+  const docRef = await addDoc(collection(db, SESSIONS_COLLECTION), {
     classId: data.classId,
     courseTitle: data.courseTitle.trim(),
     moduleName: data.moduleName.trim(),
@@ -64,7 +67,7 @@ export async function updateSession(
     participantIds?: string[];
   }
 ): Promise<void> {
-  const sessionRef = doc(db, 'sessions', id);
+  const sessionRef = doc(db, SESSIONS_COLLECTION, id);
   const snap = await getDoc(sessionRef);
 
   if (!snap.exists()) {
@@ -91,7 +94,7 @@ export async function updateSession(
  * Menghapus sesi praktikum (Hanya boleh jika status BELUM_DIBUKA)
  */
 export async function deleteSession(id: string): Promise<void> {
-  const sessionRef = doc(db, 'sessions', id);
+  const sessionRef = doc(db, SESSIONS_COLLECTION, id);
   const snap = await getDoc(sessionRef);
 
   if (!snap.exists()) {
@@ -117,7 +120,7 @@ export async function setSessionStatus(
   id: string,
   newStatus: SessionStatus
 ): Promise<void> {
-  const sessionRef = doc(db, 'sessions', id);
+  const sessionRef = doc(db, SESSIONS_COLLECTION, id);
 
   // Ambil data sesi untuk validasi waktu dan notification
   const snap = await getDoc(sessionRef);
@@ -191,7 +194,7 @@ export async function setSessionStatus(
 }
 
 /**
- * Ganti jadwal sesi praktikum (BUG-03)
+ * Ganti jadwal sesi praktikum
  * Hanya dapat diubah saat status masih BELUM_DIBUKA dan waktu di masa depan.
  */
 export async function rescheduleSession(
@@ -202,7 +205,7 @@ export async function rescheduleSession(
     timeSlot: string;
   }
 ): Promise<void> {
-  const sessionRef = doc(db, 'sessions', id);
+  const sessionRef = doc(db, SESSIONS_COLLECTION, id);
   const snap = await getDoc(sessionRef);
 
   if (!snap.exists()) {
@@ -247,12 +250,14 @@ export function listenSession(
   onUpdate: (session: SessionItem | null) => void,
   onError?: (err: unknown) => void
 ): () => void {
-  const sessionRef = doc(db, 'sessions', id);
+  const sessionRef = doc(db, SESSIONS_COLLECTION, id);
   return onSnapshot(
     sessionRef,
     (snap) => {
       if (!snap.exists()) {
-        onUpdate(null);
+        // Fallback ke mock jika tidak ada di Firestore
+        const mock = INITIAL_SCHEDULES.find((s) => s.id === id);
+        onUpdate(mock || null);
         return;
       }
       const data = snap.data();
@@ -274,6 +279,8 @@ export function listenSession(
     },
     (err) => {
       console.error('Error listenSession:', err);
+      const mock = INITIAL_SCHEDULES.find((s) => s.id === id);
+      onUpdate(mock || null);
       onError?.(err);
     }
   );
@@ -281,23 +288,81 @@ export function listenSession(
 
 /**
  * Real-time listener untuk daftar sesi
+ * Jika Firestore belum memiliki data sesi, fallback ke INITIAL_SCHEDULES
  */
 export function listenSessions(
   onUpdate: (sessions: SessionItem[]) => void,
   onError?: (err: any) => void
 ): () => void {
-  const q = query(collection(db, 'sessions'));
+  const q = query(collection(db, SESSIONS_COLLECTION));
   return onSnapshot(
     q,
     (snap) => {
-      const items: SessionItem[] = [];
-      snap.forEach((d) => {
-        items.push({ id: d.id, ...d.data() } as SessionItem);
+      if (snap.empty) {
+        onUpdate(INITIAL_SCHEDULES);
+        return;
+      }
+      const items: SessionItem[] = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          classId: data.classId || '',
+          courseTitle: data.courseTitle || '',
+          moduleName: data.moduleName || '',
+          classGroup: data.classGroup || '',
+          roomName: data.roomName || '',
+          timeSlot: data.timeSlot || '',
+          scheduledAt: data.scheduledAt,
+          scheduledEndAt: data.scheduledEndAt,
+          status: data.status || 'BELUM_DIBUKA',
+          participantIds: Array.isArray(data.participantIds) ? data.participantIds : [],
+          createdBy: data.createdBy || '',
+          createdAt: data.createdAt || Timestamp.now(),
+        } as SessionItem;
       });
       onUpdate(items);
     },
     (err) => {
+      console.error('Error listenSessions, using fallback:', err);
+      onUpdate(INITIAL_SCHEDULES);
       if (onError) onError(err);
     }
   );
+}
+
+/**
+ * Mendapatkan satu sesi praktikum sekali fetch
+ */
+export async function getSessionById(
+  sessionId: string
+): Promise<SessionItem | null> {
+  try {
+    const sessionRef = doc(db, SESSIONS_COLLECTION, sessionId);
+    const snap = await getDoc(sessionRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      return {
+        id: snap.id,
+        classId: data.classId || '',
+        courseTitle: data.courseTitle || '',
+        moduleName: data.moduleName || '',
+        classGroup: data.classGroup || '',
+        roomName: data.roomName || '',
+        timeSlot: data.timeSlot || '',
+        scheduledAt: data.scheduledAt,
+        scheduledEndAt: data.scheduledEndAt,
+        status: data.status || 'BELUM_DIBUKA',
+        participantIds: Array.isArray(data.participantIds)
+          ? data.participantIds
+          : [],
+        createdBy: data.createdBy || '',
+        createdAt: data.createdAt || Timestamp.now(),
+      };
+    }
+  } catch (err) {
+    console.warn('getSessionById failed, falling back to mock:', err);
+  }
+
+  const mock = INITIAL_SCHEDULES.find((s) => s.id === sessionId);
+  return mock || null;
 }

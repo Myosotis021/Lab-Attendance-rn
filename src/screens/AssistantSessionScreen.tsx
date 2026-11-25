@@ -24,6 +24,8 @@ import { useAuth } from '../hooks/useAuth';
 import { getErrorMessage } from '../utils/getErrorMessage';
 import { getSessionStatusLabel } from '../utils/labelUtils';
 import { theme } from '../theme';
+import { EditLabLocationModal } from '../components/EditLabLocationModal';
+import { useLabLocations } from '../hooks/useLabLocations';
 
 export interface AssistantSessionScreenProps {
   session?: SessionItem;
@@ -110,6 +112,26 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
       unsubscribe();
     };
   }, [sessionId]);
+
+
+  // Edit Lab Location modal state (Developer 1 - Sprint 3)
+  const { labs } = useLabLocations();
+  const [editLabModalVisible, setEditLabModalVisible] = useState<boolean>(false);
+
+  // Cocokkan lab berdasarkan ruangan sesi
+  const matchedLab = React.useMemo(() => {
+    if (labs.length === 0) return null;
+    const room = (session?.roomName || '').toLowerCase();
+    return (
+      labs.find(
+        (l) =>
+          l.name.toLowerCase().includes(room) ||
+          room.includes(l.name.toLowerCase()) ||
+          l.id.toLowerCase().includes(room)
+      ) || labs[0]
+    );
+  }, [labs, session?.roomName]);
+
 
   const getStatusBadgeConfig = (status: SessionStatus) => {
     switch (status) {
@@ -362,8 +384,16 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
           onConfirm={handleConfirmStatusChange}
           onCancel={() => setModalVisible(false)}
         />
+
+        {/* Edit Lab Location Modal (Developer 1 - Sprint 3) */}
+        <EditLabLocationModal
+          visible={editLabModalVisible}
+          lab={matchedLab}
+          onClose={() => setEditLabModalVisible(false)}
+        />
       </SafeAreaView>
     </LinearGradient>
+
   );
 };
 
@@ -503,6 +533,35 @@ const styles = StyleSheet.create({
     ...theme.shadows.subtle,
   },
   openSessionBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  btnOpenSession: {
+    backgroundColor: '#16A34A',
+  },
+  btnCloseSession: {
+    backgroundColor: '#DC2626',
+  },
+  btnDisabled: {
+    backgroundColor: '#9CA3AF',
+    opacity: 0.5,
+  },
+  btnEditLabLocation: {
+    backgroundColor: '#2563EB',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+  },
+  btnEditLabLocationText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  mainActionButtonText: {
+
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 14,

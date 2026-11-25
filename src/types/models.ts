@@ -60,6 +60,21 @@ export interface SessionDoc {
   closedAt?: any;
 }
 
+export interface SentimentResult {
+  label: SentimentLabel | null;
+  status: 'predicted' | 'unknown_vocabulary' | 'empty_input' | 'error';
+  experimental: boolean;
+}
+
+// Disimpan pada AttendanceRecord (extend existing)
+export interface LocationSnapshot {
+  latitude: number;
+  longitude: number;
+  accuracy: number | null; // meter
+  distanceToLab: number;   // jarak ke pusat lab dalam meter
+  withinRadius: boolean;
+}
+
 // Dokumen: attendance/{sessionId}_{uid}
 export interface AttendanceRecord {
   id: string;
@@ -72,12 +87,7 @@ export interface AttendanceRecord {
   notes: string;
   createdAt: Timestamp;
   timestamp?: string;
-}
-
-export interface SentimentResult {
-  label: SentimentLabel | null;
-  status: 'predicted' | 'unknown_vocabulary' | 'empty_input' | 'error';
-  experimental: boolean;
+  locationSnapshot?: LocationSnapshot;
 }
 
 // Dokumen: leaveRequests/{sessionId}_{uid}
@@ -104,4 +114,24 @@ export interface FcmTokenDoc {
   token: string;
   platform: 'android' | 'ios';
   updatedAt: any;
+}
+
+// Dokumen: labLocations/{labId}
+export interface LabLocation {
+  id: string;
+  name: string;        // "Lab Komputer 1"
+  building: string;    // "Gedung Informatika Lt.2"
+  latitude: number;    // koordinat WGS-84
+  longitude: number;
+  radiusMeters: number; // radius presensi — default 100m (koreksi PM)
+  description?: string;
+  createdBy: string;
+  updatedAt: any;      // Firestore Timestamp
+}
+
+// Digunakan pada MapScreen untuk info aktivitas lab
+export interface LabScheduleInfo {
+  labId: string;
+  currentSession: SessionItem | null; // sesi BERJALAN saat ini
+  nextSession: SessionItem | null;    // sesi BELUM_DIBUKA terdekat
 }

@@ -10,15 +10,16 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { AttendanceRecord } from '../types/models';
+import { AttendanceRecord, LocationSnapshot } from '../types/models';
 
 /**
  * Format timestamp Firestore menjadi teks format waktu (contoh: 13:15:30 WIB)
  */
-export function formatAttendanceTime(timestamp?: Timestamp | null): string {
+export function formatAttendanceTime(timestamp?: any): string {
   if (!timestamp) return 'Baru saja';
   try {
-    const date = timestamp.toDate();
+    const date =
+      typeof timestamp.toDate === 'function' ? timestamp.toDate() : new Date();
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
@@ -28,29 +29,34 @@ export function formatAttendanceTime(timestamp?: Timestamp | null): string {
   }
 }
 
-/**
- * Menyimpan presensi mahasiswa praktikan
- * ID dokumen deterministik: attendance/{sessionId}_{uid} untuk mencegah presensi ganda
- */
-export async function saveAttendance(params: {
+export interface SubmitAttendanceParams {
   sessionId: string;
-  classId: string;
+  classId?: string;
   uid: string;
   studentName: string;
   studentNim: string;
   notes?: string;
-}): Promise<AttendanceRecord> {
+  locationSnapshot?: LocationSnapshot;
+}
+
+/**
+ * Menyimpan presensi mahasiswa praktikan dengan data lokasi
+ * ID dokumen deterministik: attendance/{sessionId}_{uid} untuk mencegah presensi ganda
+ */
+export async function submitAttendance(
+  params: SubmitAttendanceParams
+): Promise<AttendanceRecord> {
   const docId = `${params.sessionId}_${params.uid}`;
   const docRef = doc(db, 'attendance', docId);
 
-  // Cek apakah sudah pernah presensi sebelumnya
+  // Cek apakah sudah pernah presensi sebelumnya (anti-double submit)
   const existingSnap = await getDoc(docRef);
   if (existingSnap.exists()) {
     throw new Error('Anda sudah melakukan presensi pada sesi ini.');
   }
 
   const nowTimestamp = Timestamp.now();
-  const payload = {
+  const payload: any = {
     sessionId: params.sessionId,
     classId: params.classId || '',
     uid: params.uid,
@@ -60,6 +66,16 @@ export async function saveAttendance(params: {
     notes: (params.notes || '').trim(),
     createdAt: serverTimestamp(),
   };
+
+  if (params.locationSnapshot) {
+    payload.locationSnapshot = {
+      latitude: params.locationSnapshot.latitude,
+      longitude: params.locationSnapshot.longitude,
+      accuracy: params.locationSnapshot.accuracy,
+      distanceToLab: params.locationSnapshot.distanceToLab,
+      withinRadius: params.locationSnapshot.withinRadius,
+    };
+  }
 
   await setDoc(docRef, payload);
 
@@ -74,8 +90,12 @@ export async function saveAttendance(params: {
     notes: (params.notes || '').trim(),
     createdAt: nowTimestamp,
     timestamp: formatAttendanceTime(nowTimestamp),
+    locationSnapshot: params.locationSnapshot,
   };
 }
+
+// Alias untuk menjaga backward-compatibility
+export const saveAttendance = submitAttendance;
 
 /**
  * Mendengarkan data presensi satu praktikan pada sesi tertentu
@@ -97,7 +117,7 @@ export function listenMyAttendanceForSession(
         return;
       }
       const data = snap.data();
-      const createdAt = data.createdAt as Timestamp | undefined;
+      const createdAt = data.createdAt;
       onUpdate({
         id: snap.id,
         sessionId: data.sessionId,
@@ -109,6 +129,7 @@ export function listenMyAttendanceForSession(
         notes: data.notes || '',
         createdAt: createdAt || Timestamp.now(),
         timestamp: formatAttendanceTime(createdAt),
+        locationSnapshot: data.locationSnapshot,
       });
     },
     (err) => {
@@ -127,14 +148,17 @@ export function listenAttendanceBySession(
   onUpdate: (records: AttendanceRecord[]) => void,
   onError?: (err: unknown) => void
 ): () => void {
-  const q = query(collection(db, 'attendance'), where('sessionId', '==', sessionId));
+  const q = query(
+    collection(db, 'attendance'),
+    where('sessionId', '==', sessionId)
+  );
 
   return onSnapshot(
     q,
     (snapshot) => {
       const records: AttendanceRecord[] = snapshot.docs.map((d) => {
         const data = d.data();
-        const createdAt = data.createdAt as Timestamp | undefined;
+        const createdAt = data.createdAt;
         return {
           id: d.id,
           sessionId: data.sessionId,
@@ -146,6 +170,7 @@ export function listenAttendanceBySession(
           notes: data.notes || '',
           createdAt: createdAt || Timestamp.now(),
           timestamp: formatAttendanceTime(createdAt),
+          locationSnapshot: data.locationSnapshot,
         };
       });
 
@@ -180,7 +205,7 @@ export function listenMyAttendance(
     (snapshot) => {
       const records: AttendanceRecord[] = snapshot.docs.map((d) => {
         const data = d.data();
-        const createdAt = data.createdAt as Timestamp | undefined;
+        const createdAt = data.createdAt;
         return {
           id: d.id,
           sessionId: data.sessionId,
@@ -192,6 +217,7 @@ export function listenMyAttendance(
           notes: data.notes || '',
           createdAt: createdAt || Timestamp.now(),
           timestamp: formatAttendanceTime(createdAt),
+          locationSnapshot: data.locationSnapshot,
         };
       });
 

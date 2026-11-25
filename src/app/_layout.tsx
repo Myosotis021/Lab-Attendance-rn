@@ -66,6 +66,14 @@ export default function RootLayout() {
             name="session-leave-request"
             options={{ title: 'Pengajuan Izin Sesi', headerShown: false }}
           />
+          <Stack.Screen
+            name="lab-map"
+            options={{ title: 'Peta Laboratorium', headerShown: false }}
+          />
+          <Stack.Screen
+            name="attendance"
+            options={{ title: 'Presensi Laboratorium', headerShown: false }}
+          />
         </Stack>
       </View>
     </AuthProvider>

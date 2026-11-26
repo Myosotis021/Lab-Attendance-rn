@@ -21,7 +21,9 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "CAMERA"
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "predictiveBackGestureEnabled": false,
       "package": "com.myosotis02.PPK1"
@@ -70,8 +72,9 @@
         }
       },
       "eas": {
-        "projectId": "2014ce3c-67b3-4049-b40d-7ba02ba48c05"
+        "projectId": "9d2597d5-6571-4624-97a7-a1a8ded7da33"
       }
-    }
+    },
+    "owner": "zugz"
   }
 }

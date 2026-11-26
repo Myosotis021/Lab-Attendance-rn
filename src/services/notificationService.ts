@@ -1,7 +1,7 @@
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { saveFcmToken, getFcmToken, getFcmTokensForUsers } from './fcmTokenService';
+import { getFcmToken, getFcmTokensForUsers, saveFcmToken } from './fcmTokenService';
 
 // Konfigurasi handler notifikasi ketika aplikasi sedang di foreground
 Notifications.setNotificationHandler({
@@ -24,7 +24,7 @@ export async function setupNotifications(): Promise<void> {
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#2563EB',
-      sound: 'default',
+      sound: true,
     });
   }
 }
@@ -118,7 +118,7 @@ export async function sendPushToUser(
       },
       body: JSON.stringify({
         to: token,
-        sound: 'default',
+        sound: true,
         title,
         body,
         data: data || {},
@@ -148,7 +148,7 @@ export async function sendPushToUsers(
 
   const messages = tokens.map((token) => ({
     to: token,
-    sound: 'default',
+    sound: true,
     title,
     body,
     data: data || {},

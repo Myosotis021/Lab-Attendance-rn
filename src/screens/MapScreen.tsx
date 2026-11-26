@@ -1,20 +1,21 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import MapView, { Marker, Circle, UrlTile } from 'react-native-maps';
-import { LabLocation, SessionItem } from '../types/models';
-import { useLabLocations } from '../hooks/useLabLocations';
-import { useCurrentLocation } from '../hooks/useCurrentLocation';
-import { listenSessions } from '../services/sessionService';
-import { calculateDistance } from '../services/locationService';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import MapView, { Circle, Marker, UrlTile } from 'react-native-maps';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LabInfoBottomSheet } from '../components/LabInfoBottomSheet';
+import { useCurrentLocation } from '../hooks/useCurrentLocation';
+import { useLabLocations } from '../hooks/useLabLocations';
+import { calculateDistance } from '../services/locationService';
+import { listenSessions } from '../services/sessionService';
+import { LabLocation, SessionItem } from '../types/models';
 
 export const MapScreen: React.FC = () => {
   const router = useRouter();
@@ -141,6 +142,7 @@ export const MapScreen: React.FC = () => {
         ref={mapRef}
         style={styles.map}
         initialRegion={initialRegion}
+        mapType={Platform.OS === 'android' ? 'none' : 'standard'}
         showsUserLocation={false}
         showsMyLocationButton={false}
       >

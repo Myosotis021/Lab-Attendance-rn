@@ -182,7 +182,7 @@ export const RoomPlaceSelector: React.FC<RoomPlaceSelectorProps> = ({
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
             Koordinat {matchedLab.name}: {matchedLab.latitude},{' '}
-            {matchedLab.longitude} • Wajib berada dalam radius 150 m saat sesi dimulai.
+            {matchedLab.longitude} • Wajib berada dalam radius 100 m saat sesi dimulai.
           </Text>
         </View>
       )}
@@ -199,7 +199,7 @@ export const RoomPlaceSelector: React.FC<RoomPlaceSelectorProps> = ({
       {mode === 'CUSTOM' && (
         <View style={[styles.infoBox, styles.infoBoxCustom]}>
           <Text style={styles.infoTextCustom}>
-            Tempat Lainnya: Praktikan hanya dapat absen dalam radius maks. 150 m
+            Tempat Lainnya: Praktikan hanya dapat absen dalam radius maks. 100 m
             dari posisi device Asprak saat sesi dibuka.
           </Text>
         </View>

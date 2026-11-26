@@ -574,7 +574,7 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
                   <Text style={{ fontSize: 14 }}>🛡️</Text>
                   <Text style={styles.confirmedBannerText}>
                     {attendanceRecord.locationSnapshot
-                      ? 'Presensi berhasil diverifikasi berbasis lokasi GPS (radius 150 m).'
+                      ? 'Presensi berhasil diverifikasi berbasis lokasi GPS (radius 100 m).'
                       : 'Presensi online berhasil diverifikasi melalui QR Code.'}
                   </Text>
                 </View>

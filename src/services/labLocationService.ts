@@ -152,15 +152,22 @@ export async function updateLabLocation(
 }
 
 /**
- * Helper: Memastikan 4 lab resmi (Lab B, Lab C, Lab D, Lab AP) tersedia di Firestore
- * dengan koordinat & radius 150m sesuai ketetapan PM.
+ * Helper: Memastikan 4 lab resmi (Lab B, Lab C, Lab D, Lab AP) tersedia & sinkron di Firestore
+ * dengan koordinat resmi & radius 100m.
  */
 export async function seedLabLocationsIfEmpty(): Promise<void> {
   try {
     const existing = await getAllLabLocations();
-    const existingIds = new Set(existing.map((l) => l.id));
+    const existingMap = new Map(existing.map((l) => [l.id, l]));
     for (const item of PREDEFINED_LABS) {
-      if (!existingIds.has(item.id)) {
+      const current = existingMap.get(item.id);
+      const needsSync =
+        !current ||
+        current.latitude !== item.latitude ||
+        current.longitude !== item.longitude ||
+        current.radiusMeters !== item.radiusMeters;
+
+      if (needsSync) {
         const labRef = doc(db, LABS_COLLECTION, item.id);
         await setDoc(labRef, {
           name: item.name,
@@ -169,7 +176,7 @@ export async function seedLabLocationsIfEmpty(): Promise<void> {
           longitude: item.longitude,
           radiusMeters: item.radiusMeters,
           description: item.description,
-          createdBy: 'system_seed',
+          createdBy: current?.createdBy || 'system_seed',
           updatedAt: serverTimestamp(),
         });
       }

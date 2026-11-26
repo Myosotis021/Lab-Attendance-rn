@@ -2,14 +2,14 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Platform,
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Circle, Marker, UrlTile } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { WebView, WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 import { LabInfoBottomSheet } from '../components/LabInfoBottomSheet';
 import { useCurrentLocation } from '../hooks/useCurrentLocation';
 import { useLabLocations } from '../hooks/useLabLocations';
@@ -17,9 +17,13 @@ import { calculateDistance } from '../services/locationService';
 import { listenSessions } from '../services/sessionService';
 import { LabLocation, SessionItem } from '../types/models';
 
+const LeafletWebView = WebView as unknown as React.ComponentType<
+  WebViewProps & { ref?: React.Ref<{ injectJavaScript: (script: string) => void } | null> }
+>;
+
 export const MapScreen: React.FC = () => {
   const router = useRouter();
-  const mapRef = useRef<MapView | null>(null);
+  const webViewRef = useRef<{ injectJavaScript: (script: string) => void } | null>(null);
 
   const { labs } = useLabLocations();
   const { location, refreshLocation } = useCurrentLocation(true);
@@ -27,6 +31,7 @@ export const MapScreen: React.FC = () => {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [selectedLab, setSelectedLab] = useState<LabLocation | null>(null);
   const [sheetVisible, setSheetVisible] = useState<boolean>(false);
+  const [mapReady, setMapReady] = useState<boolean>(false);
 
   // 1. Listen ke semua sesi untuk mencocokkan sesi berjalan & berikutnya
   useEffect(() => {
@@ -37,27 +42,195 @@ export const MapScreen: React.FC = () => {
   }, []);
 
   // Koordinat pusat peta default (Kampus / Lab B, C, D, AP)
-  const initialRegion = useMemo(() => {
+  const centerCoords = useMemo(() => {
     if (labs.length > 0) {
       return {
         latitude: labs[0].latitude,
         longitude: labs[0].longitude,
-        latitudeDelta: 0.005,
-        longitudeDelta: 0.005,
       };
     }
     return {
       latitude: -7.048248,
       longitude: 110.440831,
-      latitudeDelta: 0.005,
-      longitudeDelta: 0.005,
     };
   }, [labs]);
 
-  // Handler saat marker lab ditekan
-  const handleSelectLab = (lab: LabLocation) => {
-    setSelectedLab(lab);
-    setSheetVisible(true);
+  // Serialize data lab untuk HTML Leaflet (hanya berubah saat daftar lab berubah)
+  const labsJson = useMemo(
+    () =>
+      JSON.stringify(
+        labs.map((l) => ({
+          id: l.id,
+          name: l.name,
+          building: l.building,
+          latitude: l.latitude,
+          longitude: l.longitude,
+          radiusMeters: l.radiusMeters,
+        }))
+      ),
+    [labs]
+  );
+
+  // HTML Leaflet + OpenStreetMap resmi (legal dengan atribusi OpenStreetMap contributors)
+  const mapHtml = useMemo(() => {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body, #map {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #E5E7EB;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .lab-pin {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: translate(-50%, -100%);
+    }
+    .lab-badge {
+      background: #DC2626;
+      color: #FFFFFF;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 8px;
+      border-radius: 12px;
+      border: 2px solid #FFFFFF;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      white-space: nowrap;
+    }
+    .lab-dot {
+      width: 10px;
+      height: 10px;
+      background: #DC2626;
+      border: 2px solid #FFFFFF;
+      border-radius: 50%;
+      margin-top: -3px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .user-pulse {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(37, 99, 235, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .user-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #2563EB;
+      border: 2px solid #FFFFFF;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+    }
+    .leaflet-control-attribution {
+      font-size: 9px !important;
+      margin-bottom: 72px !important;
+      background: rgba(255,255,255,0.85) !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    var labs = ${labsJson};
+    var map = L.map('map', {
+      zoomControl: false
+    }).setView([${centerCoords.latitude}, ${centerCoords.longitude}], 17);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+      maxZoom: 20,
+      subdomains: 'abc',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    labs.forEach(function(lab) {
+      L.circle([lab.latitude, lab.longitude], {
+        radius: lab.radiusMeters || 100,
+        color: '#2563EB',
+        weight: 1.5,
+        fillColor: '#2563EB',
+        fillOpacity: 0.12
+      }).addTo(map);
+
+      var icon = L.divIcon({
+        className: '',
+        html: '<div class="lab-pin"><div class="lab-badge">' + lab.name + '</div><div class="lab-dot"></div></div>',
+        iconSize: [0, 0],
+        iconAnchor: [0, 0]
+      });
+
+      var marker = L.marker([lab.latitude, lab.longitude], { icon: icon }).addTo(map);
+      marker.on('click', function() {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'SELECT_LAB',
+            labId: lab.id
+          }));
+        }
+      });
+    });
+
+    var userMarker = null;
+    window.updateUserLocation = function(lat, lng, accuracy) {
+      if (typeof lat !== 'number' || typeof lng !== 'number') return;
+      if (!userMarker) {
+        var userIcon = L.divIcon({
+          className: '',
+          html: '<div class="user-pulse"><div class="user-dot"></div></div>',
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
+        });
+        userMarker = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
+      } else {
+        userMarker.setLatLng([lat, lng]);
+      }
+    };
+
+    window.centerOnUser = function(lat, lng) {
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        window.updateUserLocation(lat, lng);
+        map.flyTo([lat, lng], 18, { duration: 0.6 });
+      }
+    };
+  </script>
+</body>
+</html>`;
+  }, [labsJson, centerCoords.latitude, centerCoords.longitude]);
+
+  // Sinkronkan posisi GPS pengguna ke marker Leaflet tanpa reload WebView
+  useEffect(() => {
+    if (mapReady && location?.coords && webViewRef.current) {
+      const { latitude, longitude, accuracy } = location.coords;
+      webViewRef.current.injectJavaScript(
+        `window.updateUserLocation(${latitude}, ${longitude}, ${accuracy ?? 0}); true;`
+      );
+    }
+  }, [mapReady, location]);
+
+  // Handler pesan dari Leaflet saat marker lab ditekan
+  const handleWebViewMessage = (event: WebViewMessageEvent) => {
+    try {
+      const payload = JSON.parse(event.nativeEvent.data);
+      if (payload?.type === 'SELECT_LAB' && payload.labId) {
+        const found = labs.find((l) => l.id === payload.labId);
+        if (found) {
+          setSelectedLab(found);
+          setSheetVisible(true);
+        }
+      }
+    } catch {
+      // Abaikan pesan yang tidak valid
+    }
   };
 
   // Hitung sesi berjalan dan sesi berikutnya untuk lab terpilih
@@ -67,21 +240,18 @@ export const MapScreen: React.FC = () => {
     const labNameLower = selectedLab.name.toLowerCase();
     const labIdLower = selectedLab.id.toLowerCase();
 
-    // Saring sesi yang ruangannya cocok dengan lab terpilih
     const matchingSessions = sessions.filter((s) => {
       const room = (s.roomName || '').toLowerCase();
       return (
+        room === labNameLower ||
         room.includes(labNameLower) ||
         labNameLower.includes(room) ||
         room.includes(labIdLower)
       );
     });
 
-    // currentSession: status BERJALAN
     const currentSession =
       matchingSessions.find((s) => s.status === 'BERJALAN') || null;
-
-    // nextSession: status BELUM_DIBUKA
     const nextSession =
       matchingSessions.find((s) => s.status === 'BELUM_DIBUKA') || null;
 
@@ -102,15 +272,10 @@ export const MapScreen: React.FC = () => {
   }, [selectedLab, location]);
 
   const handleCenterOnUser = () => {
-    if (location?.coords && mapRef.current) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 0.005,
-          longitudeDelta: 0.005,
-        },
-        800
+    if (location?.coords && webViewRef.current) {
+      const { latitude, longitude } = location.coords;
+      webViewRef.current.injectJavaScript(
+        `window.centerOnUser(${latitude}, ${longitude}); true;`
       );
     } else {
       refreshLocation();
@@ -123,6 +288,7 @@ export const MapScreen: React.FC = () => {
       pathname: '/attendance',
       params: {
         sessionId: session.id,
+        id: session.id,
         courseTitle: session.courseTitle,
         moduleName: session.moduleName,
         classGroup: session.classGroup,
@@ -137,78 +303,25 @@ export const MapScreen: React.FC = () => {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* Map View */}
-      <MapView
-        ref={mapRef}
+      {/* OpenStreetMap (CARTO) + Leaflet WebView */}
+      <LeafletWebView
+        ref={webViewRef}
         style={styles.map}
-        initialRegion={initialRegion}
-        mapType={Platform.OS === 'android' ? 'none' : 'standard'}
-        showsUserLocation={false}
-        showsMyLocationButton={false}
-      >
-        {/* OpenStreetMap Tile Layer */}
-        <UrlTile
-          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maximumZ={19}
-        />
+        source={{ html: mapHtml, baseUrl: 'https://localhost' }}
+        originWhitelist={['*']}
+        javaScriptEnabled
+        domStorageEnabled
+        mixedContentMode="compatibility"
+        onMessage={handleWebViewMessage}
+        onLoadEnd={() => setMapReady(true)}
+      />
 
-        {/* Visualisasi Radius Presensi Tiap Lab */}
-        {labs.map((lab) => (
-          <Circle
-            key={`circle-${lab.id}`}
-            center={{
-              latitude: lab.latitude,
-              longitude: lab.longitude,
-            }}
-            radius={lab.radiusMeters}
-            fillColor="rgba(37, 99, 235, 0.12)"
-            strokeColor="#2563EB"
-            strokeWidth={1.5}
-          />
-        ))}
-
-        {/* Marker Laboratorium (Merah / Oranye) */}
-        {labs.map((lab) => (
-          <Marker
-            key={`marker-lab-${lab.id}`}
-            coordinate={{
-              latitude: lab.latitude,
-              longitude: lab.longitude,
-            }}
-            title={lab.name}
-            description={`${lab.building} • Radius: ${lab.radiusMeters}m`}
-            onPress={() => handleSelectLab(lab)}
-          >
-            <View style={styles.labMarkerBox}>
-              <Text style={{ fontSize: 14 }}>🏛️</Text>
-            </View>
-          </Marker>
-        ))}
-
-        {/* Marker Posisi Pengguna Real-Time (Biru) */}
-        {location?.coords && (
-          <Marker
-            key="user-marker"
-            coordinate={{
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-            }}
-            title="Lokasi Anda"
-            description={
-              location.coords.accuracy
-                ? `Akurasi: ±${Math.round(location.coords.accuracy)}m`
-                : 'Posisi perangkat saat ini'
-            }
-          >
-            <View style={styles.userMarkerContainer}>
-              <View style={styles.userMarkerPulse} />
-              <View style={styles.userMarkerDot}>
-                <Text style={{ fontSize: 10, color: '#FFFFFF' }}>👤</Text>
-              </View>
-            </View>
-          </Marker>
-        )}
-      </MapView>
+      {!mapReady && (
+        <View style={styles.loadingOverlay} pointerEvents="none">
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Memuat peta OpenStreetMap...</Text>
+        </View>
+      )}
 
       {/* Floating Header */}
       <SafeAreaView style={styles.floatingHeader} edges={['top']}>
@@ -224,7 +337,7 @@ export const MapScreen: React.FC = () => {
           <View style={styles.headerTitleBox}>
             <Text style={styles.headerTitle}>Peta Laboratorium</Text>
             <Text style={styles.headerSubtitle}>
-              {labs.length} Lab • Real-time GPS
+              {labs.length} Lab • OpenStreetMap
             </Text>
           </View>
 
@@ -246,11 +359,11 @@ export const MapScreen: React.FC = () => {
         </View>
         <View style={styles.legendItem}>
           <View style={styles.legendLabDot} />
-          <Text style={styles.legendText}>Lab Komputer</Text>
+          <Text style={styles.legendText}>Lab Praktikum</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={styles.legendCircleBox} />
-          <Text style={styles.legendText}>Radius Presensi</Text>
+          <Text style={styles.legendText}>Radius 100 m</Text>
         </View>
       </View>
 
@@ -271,10 +384,23 @@ export const MapScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#E5E7EB',
   },
   map: {
     ...StyleSheet.absoluteFill,
+    backgroundColor: '#E5E7EB',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(243, 244, 246, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
   },
   floatingHeader: {
     position: 'absolute',
@@ -325,45 +451,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontWeight: '600',
     marginTop: 1,
-  },
-  labMarkerBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#DC2626',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  userMarkerContainer: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userMarkerPulse: {
-    position: 'absolute',
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(37, 99, 235, 0.25)',
-  },
-  userMarkerDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#2563EB',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 3,
   },
   legendCard: {
     position: 'absolute',

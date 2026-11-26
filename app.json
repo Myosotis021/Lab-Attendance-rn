@@ -26,7 +26,12 @@
         "android.permission.RECORD_AUDIO"
       ],
       "predictiveBackGestureEnabled": false,
-      "package": "com.myosotis02.PPK1"
+      "package": "com.myosotis02.PPK1",
+      "config": {
+        "googleMaps": {
+          "apiKey": "DUMMY_KEY"
+        }
+      }
     },
     "web": {
       "output": "server",

@@ -1,10 +1,11 @@
 import { PredefinedLab, SessionType } from '../types/models';
 
-export const DEFAULT_ATTENDANCE_RADIUS_METERS = 150;
+export const DEFAULT_ATTENDANCE_RADIUS_METERS = 100;
 
 /**
- * Daftar 4 lab resmi beserta koordinat & radius 150m sesuai ketetapan PM:
- * - Lab B & Lab C: -7.048248, 110.440831
+ * Daftar 4 lab resmi beserta koordinat & radius 100m:
+ * - Lab B: -7.048291, 110.440731
+ * - Lab C: -7.048248, 110.440831
  * - Lab D: -7.048054, 110.440933
  * - Lab AP: -7.048954, 110.441646
  */
@@ -13,10 +14,10 @@ export const PREDEFINED_LABS: PredefinedLab[] = [
     id: 'lab-b',
     name: 'Lab B',
     building: 'Gedung Laboratorium Informatika',
-    latitude: -7.048248,
-    longitude: 110.440831,
+    latitude: -7.048291,
+    longitude: 110.440731,
     radiusMeters: DEFAULT_ATTENDANCE_RADIUS_METERS,
-    description: 'Laboratorium B (Radius 150 m)',
+    description: 'Laboratorium B (Radius 100 m)',
   },
   {
     id: 'lab-c',
@@ -25,7 +26,7 @@ export const PREDEFINED_LABS: PredefinedLab[] = [
     latitude: -7.048248,
     longitude: 110.440831,
     radiusMeters: DEFAULT_ATTENDANCE_RADIUS_METERS,
-    description: 'Laboratorium C (Radius 150 m)',
+    description: 'Laboratorium C (Radius 100 m)',
   },
   {
     id: 'lab-d',
@@ -34,7 +35,7 @@ export const PREDEFINED_LABS: PredefinedLab[] = [
     latitude: -7.048054,
     longitude: 110.440933,
     radiusMeters: DEFAULT_ATTENDANCE_RADIUS_METERS,
-    description: 'Laboratorium D (Radius 150 m)',
+    description: 'Laboratorium D (Radius 100 m)',
   },
   {
     id: 'lab-ap',
@@ -43,7 +44,7 @@ export const PREDEFINED_LABS: PredefinedLab[] = [
     latitude: -7.048954,
     longitude: 110.441646,
     radiusMeters: DEFAULT_ATTENDANCE_RADIUS_METERS,
-    description: 'Laboratorium AP (Radius 150 m)',
+    description: 'Laboratorium AP (Radius 100 m)',
   },
 ];
 

@@ -304,7 +304,7 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
         'Lokasi Diperbarui',
         `Titik lokasi device Asisten diperbarui (${pos.coords.latitude.toFixed(
           5
-        )}, ${pos.coords.longitude.toFixed(5)}). Radius presensi: 150 m.`
+        )}, ${pos.coords.longitude.toFixed(5)}). Radius presensi: 100 m.`
       );
     } catch (err: unknown) {
       Alert.alert('Gagal Memperbarui Lokasi', getErrorMessage(err));
@@ -422,8 +422,8 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
                   {isOnlineSession
                     ? 'Online (Scan QR, tanpa GPS)'
                     : predefinedLab
-                    ? `Lab Terdaftar (${predefinedLab.name}, 150 m)`
-                    : `Device Asprak (Radius 150 m)`}
+                    ? `Lab Terdaftar (${predefinedLab.name}, 100 m)`
+                    : `Device Asprak (Radius 100 m)`}
                 </Text>
               </View>
             </View>
@@ -457,7 +457,7 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
                     <Text style={styles.liveText}>
                       {isOnlineSession
                         ? 'Sesi Online berjalan. Bagikan QR Code di bawah ke praktikan.'
-                        : 'Sesi sedang berjalan. Praktikan dapat presensi dalam radius 150 m.'}
+                        : 'Sesi sedang berjalan. Praktikan dapat presensi dalam radius 100 m.'}
                     </Text>
                   </View>
 
@@ -511,7 +511,7 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
                         <>
                           <Feather name="crosshair" size={14} color="#92400E" />
                           <Text style={styles.updateLocBtnText}>
-                            Perbarui Posisi Device Asprak (150 m)
+                            Perbarui Posisi Device Asprak (100 m)
                           </Text>
                         </>
                       )}
@@ -572,8 +572,8 @@ export const AssistantSessionScreen: React.FC<AssistantSessionScreenProps> = ({
               ? isOnlineSession
                 ? 'Sesi Online akan dibuka dengan QR Code untuk presensi jarak jauh (lokasi tidak dilacak).'
                 : predefinedLab
-                ? `Membuka sesi di ${predefinedLab.name} memvalidasi posisi Anda berada dalam radius 150 meter dari koordinat lab.`
-                : 'Membuka sesi di tempat lainnya akan merekam posisi device Anda sebagai acuan radius 150 meter.'
+                ? `Membuka sesi di ${predefinedLab.name} memvalidasi posisi Anda berada dalam radius 100 meter dari koordinat lab.`
+                : 'Membuka sesi di tempat lainnya akan merekam posisi device Anda sebagai acuan radius 100 meter.'
               : 'Menutup sesi akan mengakhiri pengisian presensi. Praktikan tidak akan dapat mengisi presensi lagi.'
           }
           confirmText={

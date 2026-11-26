@@ -153,128 +153,141 @@ const ClassFormContent: React.FC<FormContentProps> = ({
   };
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>
-        {initialData ? 'Ubah Data Kelas' : 'Tambah Kelas Baru'}
-      </Text>
-      <Text style={styles.subtitle}>
-        Kelola mata praktikum, grup kelas, ruangan, dan daftar mahasiswa praktikan.
-      </Text>
+    <View style={styles.contentWrapper}>
+      <ScrollView
+        style={styles.formScroll}
+        contentContainerStyle={styles.formScrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
+        <Text style={styles.title}>
+          {initialData ? 'Ubah Data Kelas' : 'Tambah Kelas Baru'}
+        </Text>
+        <Text style={styles.subtitle}>
+          Kelola mata praktikum, grup kelas, ruangan, dan daftar mahasiswa praktikan.
+        </Text>
 
-      {errors.submit ? (
-        <View style={styles.errorAlert}>
-          <Text style={styles.errorAlertText}>{errors.submit}</Text>
+        {errors.submit ? (
+          <View style={styles.errorAlert}>
+            <Text style={styles.errorAlertText}>{errors.submit}</Text>
+          </View>
+        ) : null}
+
+        {/* Mata Praktikum */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Mata Praktikum *</Text>
+          <TextInput
+            style={[styles.input, errors.courseTitle ? styles.inputError : null]}
+            placeholder="Contoh: Pemrograman Perangkat Bergerak"
+            placeholderTextColor={theme.colors.textMuted}
+            value={courseTitle}
+            onChangeText={(text) => {
+              setCourseTitle(text);
+              if (errors.courseTitle) setErrors((prev) => ({ ...prev, courseTitle: undefined }));
+            }}
+            editable={!submitting}
+          />
+          {errors.courseTitle ? (
+            <Text style={styles.errorText}>{errors.courseTitle}</Text>
+          ) : null}
         </View>
-      ) : null}
 
-      {/* Mata Praktikum */}
-      <View style={styles.fieldContainer}>
-        <Text style={styles.label}>Mata Praktikum *</Text>
-        <TextInput
-          style={[styles.input, errors.courseTitle ? styles.inputError : null]}
-          placeholder="Contoh: Pemrograman Perangkat Bergerak"
-          placeholderTextColor={theme.colors.textMuted}
-          value={courseTitle}
-          onChangeText={(text) => {
-            setCourseTitle(text);
-            if (errors.courseTitle) setErrors((prev) => ({ ...prev, courseTitle: undefined }));
-          }}
-          editable={!submitting}
-        />
-        {errors.courseTitle ? (
-          <Text style={styles.errorText}>{errors.courseTitle}</Text>
-        ) : null}
-      </View>
+        {/* Grup Kelas */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Kelas Praktikum *</Text>
+          <TextInput
+            style={[styles.input, errors.classGroup ? styles.inputError : null]}
+            placeholder="Contoh: Kelas A"
+            placeholderTextColor={theme.colors.textMuted}
+            value={classGroup}
+            onChangeText={(text) => {
+              setClassGroup(text);
+              if (errors.classGroup) setErrors((prev) => ({ ...prev, classGroup: undefined }));
+            }}
+            editable={!submitting}
+          />
+          {errors.classGroup ? (
+            <Text style={styles.errorText}>{errors.classGroup}</Text>
+          ) : null}
+        </View>
 
-      {/* Grup Kelas */}
-      <View style={styles.fieldContainer}>
-        <Text style={styles.label}>Kelas Praktikum *</Text>
-        <TextInput
-          style={[styles.input, errors.classGroup ? styles.inputError : null]}
-          placeholder="Contoh: Kelas A"
-          placeholderTextColor={theme.colors.textMuted}
-          value={classGroup}
-          onChangeText={(text) => {
-            setClassGroup(text);
-            if (errors.classGroup) setErrors((prev) => ({ ...prev, classGroup: undefined }));
-          }}
-          editable={!submitting}
-        />
-        {errors.classGroup ? (
-          <Text style={styles.errorText}>{errors.classGroup}</Text>
-        ) : null}
-      </View>
+        {/* Ruangan / Tempat Lab */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Tempat / Ruangan Praktikum *</Text>
+          <RoomPlaceSelector
+            value={roomName}
+            onChange={(nextRoom) => {
+              setRoomName(nextRoom);
+              if (errors.roomName) setErrors((prev) => ({ ...prev, roomName: undefined }));
+            }}
+            disabled={submitting}
+            error={errors.roomName}
+          />
+        </View>
 
-      {/* Ruangan / Tempat Lab */}
-      <View style={styles.fieldContainer}>
-        <Text style={styles.label}>Tempat / Ruangan Praktikum *</Text>
-        <RoomPlaceSelector
-          value={roomName}
-          onChange={(nextRoom) => {
-            setRoomName(nextRoom);
-            if (errors.roomName) setErrors((prev) => ({ ...prev, roomName: undefined }));
-          }}
-          disabled={submitting}
-          error={errors.roomName}
-        />
-      </View>
+        {/* Peserta Praktikan */}
+        <View style={styles.fieldContainer}>
+          <View style={styles.studentHeaderRow}>
+            <Text style={styles.label}>
+              Peserta Praktikan ({participantIds.length} dipilih)
+            </Text>
+            {availableStudents.length > 0 && (
+              <TouchableOpacity onPress={handleSelectAllStudents}>
+                <Text style={styles.selectAllText}>
+                  {participantIds.length === availableStudents.length
+                    ? 'Batal Semua'
+                    : 'Pilih Semua'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
-      {/* Peserta Praktikan */}
-      <View style={styles.fieldContainer}>
-        <View style={styles.studentHeaderRow}>
-          <Text style={styles.label}>
-            Peserta Praktikan ({participantIds.length} dipilih)
-          </Text>
-          {availableStudents.length > 0 && (
-            <TouchableOpacity onPress={handleSelectAllStudents}>
-              <Text style={styles.selectAllText}>
-                {participantIds.length === availableStudents.length
-                  ? 'Batal Semua'
-                  : 'Pilih Semua'}
-              </Text>
-            </TouchableOpacity>
+          {loadingStudents ? (
+            <ActivityIndicator size="small" color={theme.colors.textPrimary} style={{ marginVertical: 8 }} />
+          ) : availableStudents.length === 0 ? (
+            <Text style={styles.emptyStudentText}>
+              Belum ada mahasiswa praktikan yang terdaftar.
+            </Text>
+          ) : (
+            <ScrollView
+              style={styles.studentList}
+              contentContainerStyle={styles.studentListContent}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+            >
+              {availableStudents.map((student) => {
+                const selected = participantIds.includes(student.uid);
+                return (
+                  <TouchableOpacity
+                    key={student.uid}
+                    style={[
+                      styles.studentItem,
+                      selected && styles.studentItemSelected,
+                    ]}
+                    onPress={() => toggleStudent(student.uid)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
+                      {selected && <Feather name="check" size={12} color="#FFFFFF" />}
+                    </View>
+                    <View style={styles.studentInfo}>
+                      <Text style={styles.studentName}>{student.name}</Text>
+                      {student.nim ? (
+                        <Text style={styles.studentNim}>NIM: {student.nim}</Text>
+                      ) : (
+                        <Text style={styles.studentNim}>{student.email}</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           )}
         </View>
+      </ScrollView>
 
-        {loadingStudents ? (
-          <ActivityIndicator size="small" color={theme.colors.textPrimary} style={{ marginVertical: 8 }} />
-        ) : availableStudents.length === 0 ? (
-          <Text style={styles.emptyStudentText}>
-            Belum ada mahasiswa praktikan yang terdaftar.
-          </Text>
-        ) : (
-          <View style={styles.studentList}>
-            {availableStudents.map((student) => {
-              const selected = participantIds.includes(student.uid);
-              return (
-                <TouchableOpacity
-                  key={student.uid}
-                  style={[
-                    styles.studentItem,
-                    selected && styles.studentItemSelected,
-                  ]}
-                  onPress={() => toggleStudent(student.uid)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
-                    {selected && <Feather name="check" size={12} color="#FFFFFF" />}
-                  </View>
-                  <View style={styles.studentInfo}>
-                    <Text style={styles.studentName}>{student.name}</Text>
-                    {student.nim ? (
-                      <Text style={styles.studentNim}>NIM: {student.nim}</Text>
-                    ) : (
-                      <Text style={styles.studentNim}>{student.email}</Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-      </View>
-
-      {/* Action Buttons */}
+      {/* Fixed Action Buttons Footer */}
       <View style={styles.buttonRow}>
         <TouchableOpacity
           style={styles.cancelBtn}
@@ -300,7 +313,7 @@ const ClassFormContent: React.FC<FormContentProps> = ({
           )}
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 
@@ -317,16 +330,17 @@ export const ClassFormModal: React.FC<ClassFormModalProps> = ({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+      <View style={styles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.card}>
           <ClassFormContent
             key={initialData ? initialData.id : 'new'}
             initialData={initialData}
             onClose={onClose}
             onSubmit={onSubmit}
           />
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 };
@@ -341,9 +355,20 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderTopLeftRadius: theme.borderRadius.xxl,
     borderTopRightRadius: theme.borderRadius.xxl,
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
     maxHeight: '90%',
     ...theme.shadows.card,
+  },
+  contentWrapper: {
+    flexShrink: 1,
+  },
+  formScroll: {
+    flexGrow: 0,
+  },
+  formScrollContent: {
+    paddingBottom: 8,
   },
   title: {
     fontSize: 20,
@@ -413,17 +438,20 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   studentList: {
-    maxHeight: 160,
+    height: 190,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.md,
-    padding: 6,
     backgroundColor: theme.colors.surfaceSubtle,
+    overflow: 'hidden',
+  },
+  studentListContent: {
+    padding: 6,
   },
   studentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 8,
     borderRadius: 6,
   },
@@ -460,8 +488,10 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 18,
-    marginBottom: 10,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.borderLight,
+    backgroundColor: theme.colors.surface,
   },
   cancelBtn: {
     flex: 1,

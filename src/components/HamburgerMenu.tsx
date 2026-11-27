@@ -1,22 +1,20 @@
+import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
+  Animated,
   Modal,
-  View,
+  StyleSheet,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  StyleSheet,
-  Animated,
-  Dimensions,
-  Alert,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { getRoleLabel } from '../utils/labelUtils';
-import { Role } from '../types/models';
 import { theme } from '../theme';
+import { getRoleLabel } from '../utils/labelUtils';
 
 interface HamburgerMenuProps {
   visible: boolean;
@@ -169,34 +167,31 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
 
             {/* Menu Items */}
             <View style={styles.menuList}>
-              {/* 🏠 Beranda (Semua) */}
+              {/* Beranda (Semua) */}
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => handleNavigate('/')}
                 activeOpacity={0.7}
               >
-                <Text style={styles.menuEmoji}>🏠</Text>
                 <Text style={styles.menuText}>Beranda</Text>
               </TouchableOpacity>
 
-              {/* 🗺️ Peta Laboratorium (Semua) */}
+              {/* Peta Laboratorium (Semua) */}
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => handleNavigate('/lab-map')}
                 activeOpacity={0.7}
               >
-                <Text style={styles.menuEmoji}>🗺️</Text>
                 <Text style={styles.menuText}>Peta Laboratorium</Text>
               </TouchableOpacity>
 
-              {/* 📋 Daftar Izin Saya (Praktikan) */}
+              {/* Daftar Izin Saya (Praktikan) */}
               {profile?.role === 'praktikan' && (
                 <TouchableOpacity
                   style={styles.menuItem}
                   onPress={() => handleNavigate('/my-leave-requests')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.menuEmoji}>📋</Text>
                   <Text style={styles.menuText}>Daftar Izin Saya</Text>
                 </TouchableOpacity>
               )}
@@ -208,31 +203,28 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                   onPress={() => handleNavigate('/assistant-leave-review')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.menuEmoji}>✅</Text>
                   <Text style={styles.menuText}>Review Izin Praktikan</Text>
                 </TouchableOpacity>
               )}
 
-              {/* 👥 Kelola Kelas (Asisten) */}
+              {/* Kelola Kelas (Asisten) */}
               {profile?.role === 'asisten' && (
                 <TouchableOpacity
                   style={styles.menuItem}
                   onPress={() => handleNavigate('/class-management')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.menuEmoji}>👥</Text>
                   <Text style={styles.menuText}>Kelola Kelas</Text>
                 </TouchableOpacity>
               )}
 
-              {/* 🔄 Ganti Peran (Semua jika roles.length > 1) */}
+              {/* Ganti Peran (Semua jika roles.length > 1) */}
               {canSwitchRole && otherRole && (
                 <TouchableOpacity
                   style={[styles.menuItem, styles.highlightMenuItem]}
                   onPress={handleSwitchRole}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.menuEmoji}>🔄</Text>
                   <View style={styles.menuTextCol}>
                     <Text style={styles.menuText}>Ganti Peran</Text>
                     <Text style={styles.menuSubText}>
@@ -249,7 +241,6 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                   onPress={() => handleNavigate('/role-management')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.menuEmoji}>➕</Text>
                   <Text style={styles.menuText}>Tambah Peran</Text>
                 </TouchableOpacity>
               )}
@@ -264,7 +255,6 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                 onPress={handleLogout}
                 activeOpacity={0.7}
               >
-                <Text style={styles.menuEmoji}>🚪</Text>
                 <Text style={styles.logoutText}>Keluar</Text>
               </TouchableOpacity>
             </View>

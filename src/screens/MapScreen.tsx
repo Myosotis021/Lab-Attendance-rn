@@ -346,7 +346,7 @@ export const MapScreen: React.FC = () => {
             onPress={handleCenterOnUser}
             activeOpacity={0.8}
           >
-            <Text style={{ fontSize: 18 }}>🎯</Text>
+            <Text style={{ fontSize: 18 }}>⌖</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
